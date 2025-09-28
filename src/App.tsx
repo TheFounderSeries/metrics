@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
 
+interface AppProps {
+  onLogout?: () => void;
+}
+
 interface MetricData {
   title: string;
   value: string;
@@ -10,6 +14,8 @@ interface MetricData {
     value: string;
     description?: string;
   }>;
+  ctaLabel?: string;
+  ctaHref?: string;
 }
 
 interface CategoryData {
@@ -22,10 +28,11 @@ interface InfoDefinition {
   definition: string;
 }
 
-function App() {
+function App({ onLogout }: AppProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedDefinition, setSelectedDefinition] = useState<InfoDefinition | null>(null);
   const [expandedSubData, setExpandedSubData] = useState<{[key: string]: boolean}>({});
+  const [selectedDeepDive, setSelectedDeepDive] = useState<null | { type: 'matchLoop' | 'dataSources'; timeframe?: string }>(null);
 
   const toggleSubData = (metricTitle: string) => {
     setExpandedSubData(prev => ({
@@ -63,6 +70,143 @@ function App() {
     { term: "K-factor", definition: "Viral coefficient measuring how many new users each existing user brings to the platform." },
     { term: "Engagement Density", definition: "Messages per user metric, showing depth of participation per user." }
   ];
+
+  // Confidence handling for new deep-dive stats
+  const CONFIDENCE_THRESHOLD = 0.25; // omit stats below 25%
+
+  type ConfidenceValue = { label: string; value: number | string; confidence?: number; note?: string };
+
+  // Data Sources Breakdown (Users / Messages by source)
+  const dataSourcesBreakdown: {
+    users: ConfidenceValue[];
+    messages: ConfidenceValue[];
+    totals: { usersTotal: number; messagesTotal: number; supabaseUsersCurrent?: number };
+  } = {
+    users: [
+      { label: 'Users from Firestore', value: 2553, confidence: 1 },
+      { label: 'Users from Botpress', value: 8979, confidence: 1 },
+      { label: 'Waitlist Users', value: 5814, confidence: 1 },
+      { label: 'Users from Mongo (V2)', value: 4065, confidence: 1 },
+      { label: 'Users from Mongo (V3)', value: 5691, confidence: 1 },
+      { label: 'Additional Users from Supabase', value: 1459, confidence: 1 }
+    ],
+    messages: [
+      { label: 'Messages from LoopMessage (excluding GCs)', value: 197740, confidence: 1 },
+      { label: 'Estimated Messages from LoopMessage GCs', value: 65913, confidence: 1 },
+      { label: 'Messages from Mongo (V2)', value: 110163, confidence: 1 },
+      { label: 'Messages from Mongo (V3)', value: 223433, confidence: 1 },
+      { label: 'Additional Messages from Supabase', value: 94179, confidence: 1 }
+    ],
+    totals: { usersTotal: 28561, messagesTotal: 691428, supabaseUsersCurrent: 7150 }
+  };
+
+  // Match Loop Deep Dive per timeframe
+  type MatchLoopFrame = {
+    label: string;
+    stats: ConfidenceValue[];
+  };
+
+  const matchLoopDeepDive: MatchLoopFrame[] = [
+    {
+      label: 'All Time (Since V3)',
+      stats: [
+        { label: '[A] Presented upon request', value: 8178, confidence: 1 },
+        { label: '[B] Responded by initiator', value: 1569, confidence: 1 },
+        { label: '[C] Accepted when presented', value: 1171, confidence: 1 },
+        { label: '[D] Users presented ≥ 1 (ask)', value: 2196, confidence: 1 },
+        { label: '[E] Users responded ≥ 1', value: 663, confidence: 1 },
+        { label: '[F] Users accepted ≥ 1', value: 492, confidence: 1 },
+        { label: '[F/E] Acceptance rate', value: '74.21%', confidence: 1 },
+        { label: 'Presented beyond initial', value: 1256, confidence: 1 },
+        { label: '[G] Responded beyond initial', value: 542, confidence: 1 },
+        { label: '[H] Accepted beyond initial', value: 427, confidence: 1 },
+        { label: '[H/G] Beyond-initial acceptance', value: '78.78%', confidence: 1 },
+        { label: 'Presented (asked or matched)', value: 2644, confidence: 1 },
+        { label: '[I] Responded (either side)', value: 2461, confidence: 1 },
+        { label: 'Acceptance (either side)', value: '93.08%', confidence: 1 }
+      ]
+    },
+    {
+      label: 'Past 30 days',
+      stats: [
+        { label: '[A] Presented upon request', value: 5275, confidence: 1 },
+        { label: '[B] Responded by initiator', value: 1533, confidence: 1 },
+        { label: '[C] Accepted when presented', value: 1142, confidence: 1 },
+        { label: '[D] Users presented ≥ 1 (ask)', value: 1369, confidence: 1 },
+        { label: '[E] Users responded ≥ 1', value: 653, confidence: 1 },
+        { label: '[F] Users accepted ≥ 1', value: 482, confidence: 1 },
+        { label: '[F/E] Acceptance rate', value: '73.81%', confidence: 1 },
+        { label: 'Presented beyond initial', value: 895, confidence: 1 },
+        { label: '[G] Responded beyond initial', value: 534, confidence: 1 },
+        { label: '[H] Accepted beyond initial', value: 420, confidence: 1 },
+        { label: '[H/G] Beyond-initial acceptance', value: '78.65%', confidence: 1 },
+        { label: 'Presented (asked or matched)', value: 2812, confidence: 1 },
+        { label: 'Responded (either side)', value: 1735, confidence: 1 },
+        { label: 'Accepted (either side)', value: 1560, confidence: 1 },
+        { label: 'Acceptance (either side)', value: '89.91%', confidence: 1 }
+      ]
+    },
+    {
+      label: '2025-09-10 → 2025-09-17',
+      stats: [
+        { label: '[A] Presented upon request', value: 618, confidence: 1 },
+        { label: '[B] Responded by initiator', value: 289, confidence: 1 },
+        { label: '[C] Accepted when presented', value: 145, confidence: 1 },
+        { label: '[D] Users presented ≥ 1 (ask)', value: 211, confidence: 1 },
+        { label: '[E] Users responded ≥ 1', value: 117, confidence: 1 },
+        { label: '[F] Users accepted ≥ 1', value: 86, confidence: 1 },
+        { label: '[F/E] Acceptance rate', value: '73.50%', confidence: 1 },
+        { label: 'Presented beyond initial', value: 149, confidence: 1 },
+        { label: '[G] Responded beyond initial', value: 104, confidence: 1 },
+        { label: '[H] Accepted beyond initial', value: 73, confidence: 1 },
+        { label: '[H/G] Beyond-initial acceptance', value: '70.19%', confidence: 1 },
+        { label: 'Presented (asked or matched)', value: 271, confidence: 1 },
+        { label: 'Responded (either side)', value: 234, confidence: 1 },
+        { label: 'Acceptance (either side)', value: '86.35%', confidence: 1 }
+      ]
+    },
+    {
+      label: '2025-09-03 → 2025-09-10',
+      stats: [
+        { label: '[A] Presented upon request', value: 1054, confidence: 1 },
+        { label: '[B] Responded by initiator', value: 252, confidence: 1 },
+        { label: '[C] Accepted when presented', value: 241, confidence: 1 },
+        { label: '[D] Users presented ≥ 1 (ask)', value: 288, confidence: 1 },
+        { label: '[E] Users responded ≥ 1', value: 87, confidence: 1 },
+        { label: '[F] Users accepted ≥ 1', value: 85, confidence: 1 },
+        { label: '[F/E] Acceptance rate', value: '97.70%', confidence: 1 },
+        { label: 'Presented beyond initial', value: 180, confidence: 1 },
+        { label: '[G] Responded beyond initial', value: 76, confidence: 1 },
+        { label: '[H] Accepted beyond initial', value: 75, confidence: 1 },
+        { label: '[H/G] Beyond-initial acceptance', value: '98.68%', confidence: 1 },
+        { label: 'Presented (asked or matched)', value: 638, confidence: 1 },
+        { label: 'Responded (either side)', value: 636, confidence: 1 },
+        { label: 'Acceptance (either side)', value: '99.69%', confidence: 1 }
+      ]
+    },
+    {
+      label: '2025-08-27 → 2025-09-03',
+      stats: [
+        { label: '[A] Presented upon request', value: 2422, confidence: 1 },
+        { label: '[B] Responded by initiator', value: 526, confidence: 1 },
+        { label: '[C] Accepted when presented', value: 484, confidence: 1 },
+        { label: '[D] Users presented ≥ 1 (ask)', value: 591, confidence: 1 },
+        { label: '[E] Users responded ≥ 1', value: 198, confidence: 1 },
+        { label: '[F] Users accepted ≥ 1', value: 187, confidence: 1 },
+        { label: '[F/E] Acceptance rate', value: '94.44%', confidence: 1 },
+        { label: 'Presented beyond initial', value: 418, confidence: 1 },
+        { label: '[G] Responded beyond initial', value: 186, confidence: 1 },
+        { label: '[H] Accepted beyond initial', value: 175, confidence: 1 },
+        { label: '[H/G] Beyond-initial acceptance', value: '94.09%', confidence: 1 },
+        { label: 'Presented (asked or matched)', value: 1027, confidence: 1 },
+        { label: 'Responded (either side)', value: 1016, confidence: 1 },
+        { label: 'Acceptance (either side)', value: '98.93%', confidence: 1 }
+      ]
+    }
+  ];
+
+  const filterByConfidence = (items: ConfidenceValue[]) =>
+    items.filter((i) => (i.confidence ?? 1) >= CONFIDENCE_THRESHOLD);
 
   const data: CategoryData[] = [
     {
@@ -167,7 +311,7 @@ function App() {
           expandedData: [
             { label: "Daily Active Users", value: "114", description: "Daily users" },
             { label: "Daily Match Activity", value: "121", description: "Daily match participants" },
-            { label: "Usage Pattern", value: "Intentional", description: "Purpose-driven" }
+            
           ]
         }
       ]
@@ -179,7 +323,7 @@ function App() {
           title: "Web Funnel Completion",
           value: "10%",
           description: "Signup completion",
-          insight: "10% of website visitors complete signup. Series converts visitors through clear onboarding steps.",
+          insight: "10% of website visitors complete signup. (Since 08/25 landing changes)",
           expandedData: [
             { label: "Landings", value: "18,488", description: "Website visits" },
             { label: "Signups", value: "6,689", description: "Started signup" },
@@ -191,7 +335,7 @@ function App() {
           title: "Text Onboarding (FSM)",
           value: "65%",
           description: "Text setup completion",
-          insight: "65% complete text onboarding. Series guides new users through setup via messaging before they start matching.",
+          insight: "65% complete text onboarding (Since 08/25 intro flow changes)",
           expandedData: [
             { label: "Start Rate", value: "100%", description: "Pre Prompt Sent" },
             { label: "Profile Edit", value: "84%", description: "Add details" },
@@ -260,6 +404,23 @@ function App() {
         }
       ]
     },
+    {
+      title: "B2B",
+      metrics: [
+        {
+          title: "Projected ARR for 2026",
+          value: "$120,000",
+          description: "",
+          insight: "Based month-to-month quotes in effect January 2026.",
+          ctaLabel: "View Demo",
+          ctaHref: "https://drive.google.com/file/d/19f8n3rNZ-OqnptEsGcAu0Xlwryn4VIV4/view",
+          expandedData: [
+            { label: "Enttor.ai", value: "$5,000 MRR (Jan 2026 start)", description: "Sound price point to begin; aiming to replace other CRMs." },
+            { label: "Avelis Health (YCW25)", value: "$5,000 MRR (Jan 2026 start)", description: "Competitive for entire team; envision Series as standalone outreach tool post-onboarding." }
+          ]
+        }
+      ]
+    },
   ];
 
   const handleDefinitionClick = (title: string) => {
@@ -287,7 +448,17 @@ function App() {
       <div className="border-b border-gray-200 p-6">
         <div className="flex items-baseline justify-between">
           <h1 className="text-2xl font-light">Data Room</h1>
-          <p className="text-sm font-light text-gray-600 italic">Prod metrics</p>
+          <div className="flex items-center gap-4 text-sm font-light text-gray-600">
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                className="text-gray-700 hover:text-black no-underline"
+                title="Logout"
+              >
+                Logout
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -318,11 +489,21 @@ function App() {
           onClick={closeCategoryModal}
         >
           <div 
-            className="bg-white border border-black rounded-2xl p-6 max-w-6xl w-full max-h-[90vh] overflow-y-auto"
+            className="bg-white border border-black rounded-2xl p-6 max-w-6xl w-full max-h-[90vh] overflow-y-auto no-scrollbar"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between mb-6">
               <h2 className="text-2xl font-light text-black">{selectedCategory}</h2>
+              <div className="flex items-center gap-2">
+                {selectedCategory === 'Growth' && (
+                  <button
+                    onClick={() => setSelectedDeepDive({ type: 'dataSources' })}
+                    className="text-sm px-3 py-1 border border-black rounded-lg hover:bg-gray-50"
+                  >
+                    Data Sources Deep Dive
+                  </button>
+                )}
+              </div>
             </div>
             
             <div className="space-y-6">
@@ -347,9 +528,22 @@ function App() {
                       <div className="text-2xl font-bold text-black">
                         {metric.value}
                       </div>
-                      <div className="text-sm text-gray-600">
-                        {metric.description}
-                      </div>
+                      {(metric.description || metric.ctaHref) && (
+                        <div className="text-sm text-gray-600">
+                          {metric.ctaHref ? (
+                            <a
+                              href={metric.ctaHref}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="no-underline"
+                            >
+                              View Demo
+                            </a>
+                          ) : (
+                            metric.description
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     {/* Insight */}
@@ -394,6 +588,17 @@ function App() {
                         )}
                       </div>
                     )}
+
+                    {(metric.title === 'Recent Match Acceptance Trends' || metric.title === 'First Match Acceptance') && (
+                      <div className="mt-3">
+                        <button
+                          onClick={() => setSelectedDeepDive({ type: 'matchLoop', timeframe: matchLoopDeepDive[0].label })}
+                          className="text-sm px-3 py-1 border border-black rounded-lg hover:bg-gray-50"
+                        >
+                          Deep Dive: Match Loop
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -418,6 +623,101 @@ function App() {
                 {selectedDefinition.definition}
               </p>
             </div>
+          </div>
+        </div>
+      )}
+
+      {selectedDeepDive && (
+        <div
+          className="fixed inset-0 bg-black/20 flex items-center justify-center p-4 z-[99999]"
+          onClick={() => setSelectedDeepDive(null)}
+        >
+          <div
+            className="bg-white border border-black rounded-2xl p-6 w-full max-w-5xl max-h-[90vh] overflow-y-auto no-scrollbar"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between mb-4">
+              <h3 className="text-xl font-light text-black">
+                {selectedDeepDive.type === 'matchLoop' ? 'Match Loop Deep Dive' : 'Data Sources Deep Dive'}
+              </h3>
+              <button
+                onClick={() => setSelectedDeepDive(null)}
+                className="text-sm px-3 py-1 border border-black rounded-lg hover:bg-gray-50"
+              >
+                Close
+              </button>
+            </div>
+
+            {selectedDeepDive.type === 'matchLoop' && (
+              <div className="space-y-4">
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {matchLoopDeepDive.map((frame) => (
+                    <button
+                      key={frame.label}
+                      onClick={() => setSelectedDeepDive({ type: 'matchLoop', timeframe: frame.label })}
+                      className={`text-sm px-3 py-1 border border-black rounded-lg hover:bg-gray-50 ${selectedDeepDive.timeframe === frame.label ? 'bg-gray-100' : ''}`}
+                    >
+                      {frame.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {filterByConfidence(
+                    (matchLoopDeepDive.find((f) => f.label === selectedDeepDive.timeframe) || matchLoopDeepDive[0]).stats
+                  ).map((s, idx) => (
+                    <div key={idx} className="bg-white border border-black rounded-lg p-4">
+                      <div className="text-sm font-bold text-black">{s.label}</div>
+                      <div className="text-lg font-bold text-black mt-1">{typeof s.value === 'number' ? s.value.toLocaleString() : s.value}</div>
+                      {s.note && <div className="text-xs text-gray-600 mt-1">{s.note}</div>}
+                    </div>
+                  ))}
+                </div>
+                <div className="text-xs text-gray-500 mt-2">Hiding items with confidence &lt; {(CONFIDENCE_THRESHOLD * 100).toFixed(0)}%.</div>
+              </div>
+            )}
+
+            {selectedDeepDive.type === 'dataSources' && (
+              <div className="space-y-6">
+                <div>
+                  <h4 className="text-sm font-bold text-black mb-2">Users by Source</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {filterByConfidence(dataSourcesBreakdown.users).map((u, idx) => (
+                      <div key={idx} className="bg-white border border-black rounded-lg p-4">
+                        <div className="text-sm font-bold text-black">{u.label}</div>
+                        <div className="text-lg font-bold text-black mt-1">{typeof u.value === 'number' ? u.value.toLocaleString() : u.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-black mb-2">Messages by Source</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {filterByConfidence(dataSourcesBreakdown.messages).map((m, idx) => (
+                      <div key={idx} className="bg-white border border-black rounded-lg p-4">
+                        <div className="text-sm font-bold text-black">{m.label}</div>
+                        <div className="text-lg font-bold text-black mt-1">{typeof m.value === 'number' ? m.value.toLocaleString() : m.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="bg-white border border-black rounded-lg p-4">
+                    <div className="text-sm font-bold text-black">Total Users</div>
+                    <div className="text-lg font-bold text-black mt-1">{dataSourcesBreakdown.totals.usersTotal.toLocaleString()}</div>
+                  </div>
+                  <div className="bg-white border border-black rounded-lg p-4">
+                    <div className="text-sm font-bold text-black">Total Messages</div>
+                    <div className="text-lg font-bold text-black mt-1">{dataSourcesBreakdown.totals.messagesTotal.toLocaleString()}</div>
+                  </div>
+                  <div className="bg-white border border-black rounded-lg p-4">
+                    <div className="text-sm font-bold text-black">Current in Supabase (Users)</div>
+                    <div className="text-lg font-bold text-black mt-1">{(dataSourcesBreakdown.totals.supabaseUsersCurrent || 0).toLocaleString()}</div>
+                  </div>
+                </div>
+                <div className="text-xs text-gray-500 mt-2">Hiding items with confidence &lt; {(CONFIDENCE_THRESHOLD * 100).toFixed(0)}%.</div>
+              </div>
+            )}
           </div>
         </div>
       )}

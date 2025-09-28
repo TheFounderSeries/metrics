@@ -86,19 +86,8 @@ const AuthWrapper: React.FC = () => {
   // Show main app with logout option if authenticated
   return (
     <div>
-      {/* Logout button */}
-      <div className="fixed top-4 right-4 z-50">
-        <button
-          onClick={handleLogout}
-          className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded-lg text-sm border border-gray-300 transition-colors"
-          title="Logout"
-        >
-          Logout
-        </button>
-      </div>
-      
-      {/* Main application */}
-      <App />
+      {/* Main application with header logout control */}
+      <App onLogout={handleLogout} />
     </div>
   );
 };
