@@ -669,7 +669,10 @@ function App({ onLogout }: AppProps) {
                 </div>
               </div>
               <div className="border border-gray-200 rounded-lg p-5">
-                <h4 className="font-semibold text-gray-900">Use Case 3</h4>
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold text-gray-900">Use Case 3</h4>
+                  <a href="https://tasteful-vicuna-7b3.notion.site/ebd/27f93c569007801e8a42fcc2a56f19db" target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors">View</a>
+                </div>
               </div>
             </div>
           </div>
