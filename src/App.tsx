@@ -615,24 +615,33 @@ function App({ onLogout }: AppProps) {
                         </button>
                         
                         {expandedSubData[metric.title] && (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                            {metric.expandedData.map((item, idx) => (
-                              <div key={idx} className="bg-gray-25 border border-black rounded-lg p-4">
-                                <div className="space-y-2">
-                                  <div className="flex items-center justify-between">
-                                    <div className="text-sm font-bold text-black">{item.label}</div>
-                                  </div>
-                                  <div className="text-lg font-bold text-black">
-                                    {item.value}
-                                  </div>
-                                  {item.description && (
-                                    <div className="text-sm text-gray-600">
-                                      {item.description}
+                          <div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                              {metric.expandedData.map((item, idx) => (
+                                <div key={idx} className="bg-gray-25 border border-black rounded-lg p-4">
+                                  <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <div className="text-sm font-bold text-black">{item.label}</div>
                                     </div>
-                                  )}
+                                    <div className="text-lg font-bold text-black">
+                                      {item.value}
+                                    </div>
+                                    {item.description && (
+                                      <div className="text-sm text-gray-600">
+                                        {item.description}
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
+                              ))}
+                            </div>
+                            {selectedCategory === 'Retention' && metric.title.startsWith('Retention Averages') && (
+                              <div className="mt-3 text-xs text-gray-600">
+                                <em>
+                                  Note: Calculations for Retention were based on recent data on read receipts (more info <a href="https://www.notion.so/How-we-track-retention-27e83195d81b80259494fcf3953049a3#27e83195d81b80259494fcf3953049a3" target="_blank" rel="noopener noreferrer" className="underline">here</a>).
+                                </em>
                               </div>
-                            ))}
+                            )}
                           </div>
                         )}
                       </div>
