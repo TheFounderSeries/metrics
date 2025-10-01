@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import SimpleChart from './components/SimpleChart';
+// import SimpleChart from './components/SimpleChart';
 
 interface AppProps {
   onLogout?: () => void;
@@ -550,7 +550,7 @@ function App({ onLogout }: AppProps) {
                       <h3 
                         className="text-lg font-bold text-black cursor-pointer hover:text-gray-700 transition-colors"
                         onClick={() => {
-                          if (metric.title === 'Retention Averages') {
+                          if (metric.title.toLowerCase().startsWith('retention averages')) {
                             setShowRetentionDefinition(true);
                           } else if (metric.title === 'North Star Metric') {
                             setShowNorthStar(true);
@@ -806,25 +806,8 @@ function App({ onLogout }: AppProps) {
             <h3 className="text-xl font-semibold text-gray-900 mb-1">Beta Launch – v3.5 Beta Launch</h3>
             <p className="text-sm text-gray-600 mb-6">July 11 – September 1, 2025 | {selectedRetentionDimension} Life Cycle | Rolling method</p>
             <div className="bg-gray-50 rounded-lg p-4 mb-6">
-              <div className="grid grid-cols-2 gap-4 text-center">
-                <div>
-                  <div className="text-2xl font-semibold text-gray-900">95.51%</div>
-                  <div className="text-sm text-gray-600">{selectedRetentionDimension} Rolling Average Percent</div>
-                </div>
-                <div>
-                  <div className="text-sm text-gray-600">Total Cohorts</div>
-                  <div className="text-2xl font-semibold text-gray-900">37</div>
-                </div>
-              </div>
+              <img src="/retention_graph.png" alt="Retention Graph" className="w-full h-auto max-h-[60vh] object-contain rounded mx-auto" />
             </div>
-            <div className="h-64">
-              <SimpleChart
-                type="line"
-                height={220}
-                data={[{ label: '1', value: 95 }, { label: '2', value: 97 }, { label: '3', value: 96 }, { label: '4', value: 95 }, { label: '5', value: 93 }, { label: '6', value: 94 }, { label: '7', value: 92 }]}
-              />
-            </div>
-            <div className="text-xs text-gray-500 mt-2">Hiding items with confidence &lt; 25%.</div>
           </div>
         </div>
       )}
