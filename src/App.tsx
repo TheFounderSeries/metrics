@@ -379,9 +379,9 @@ function App({ onLogout }: AppProps) {
           description: "D7 Rolling",
           insight: "Retention is calculated by the recurrence of new AI friend texts being opened.",
           expandedData: [
-            { label: "D1 Retention", value: "96.63%", description: "1-day return rate" },
-            { label: "D7 Retention", value: "95.51%", description: "7-day return rate" },
-            { label: "D30 Retention", value: "92.85%", description: "30-day return rate" }
+            { label: "D1 Rolling", value: "96.63%", description: "1-day return rate" },
+            { label: "D7 Rolling", value: "95.51%", description: "7-day return rate" },
+            { label: "D30 Rolling", value: "92.85%", description: "30-day return rate" }
           ]
         }
       ]
