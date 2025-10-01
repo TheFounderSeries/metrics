@@ -377,7 +377,7 @@ function App({ onLogout }: AppProps) {
           title: "Retention Averages across all our Cohorts",
           value: "D7 Rolling = 95.51%",
           description: "D7 Rolling",
-          insight: "Retention is calculated by the recurrence of new AI friend texts being opened.",
+          insight: "Retention is calculated by a user who on Dx opens and reads a message from their AI Friend.",
           expandedData: [
             { label: "D1 Rolling", value: "96.63%", description: "1-day return rate" },
             { label: "D7 Rolling", value: "95.51%", description: "7-day return rate" },
