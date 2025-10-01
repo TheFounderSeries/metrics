@@ -374,7 +374,7 @@ function App({ onLogout }: AppProps) {
       title: "Retention",
       metrics: [
         {
-          title: "Retention Averages",
+          title: "Retention Averages across all our Cohorts",
           value: "D7 Rolling = 95.51%",
           description: "D7 Rolling",
           insight: "Retention is calculated by the recurrence of new AI friend texts being opened.",
