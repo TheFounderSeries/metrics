@@ -684,7 +684,7 @@ function App({ onLogout }: AppProps) {
           <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto no-scrollbar p-6 relative" onClick={(e) => e.stopPropagation()}>
             <button onClick={() => setShowRoadmap(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors">✕</button>
             <h3 className="text-2xl font-semibold text-gray-900 mb-6">Product Roadmap</h3>
-            <p className="text-gray-600 mb-6">What\'s next for Series</p>
+            <p className="text-gray-600 mb-6">What's next for Series</p>
             <div className="space-y-5">
               <div>
                 <h4 className="font-semibold text-gray-900 mb-3 text-lg">Q4 2025</h4>
