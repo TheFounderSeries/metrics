@@ -39,7 +39,7 @@ function App({ onLogout }: AppProps) {
   const [showNorthStar, setShowNorthStar] = useState(false);
   const [showRetentionDefinition, setShowRetentionDefinition] = useState(false);
   const [showRetentionGraph, setShowRetentionGraph] = useState(false);
-  const [selectedRetentionDimension, setSelectedRetentionDimension] = useState<'D2' | 'D7' | 'D30'>('D30');
+  const [selectedRetentionDimension, setSelectedRetentionDimension] = useState<'D2' | 'D7' | 'D30'>('D7');
 
   const toggleSubData = (metricTitle: string) => {
     setExpandedSubData((prev: { [key: string]: boolean }) => ({
@@ -804,10 +804,25 @@ function App({ onLogout }: AppProps) {
         <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50 p-4" onClick={() => setShowRetentionGraph(false)}>
           <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto no-scrollbar p-8 relative" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-xl font-semibold text-gray-900 mb-1">Beta Launch – v3.5 Beta Launch</h3>
-            <p className="text-sm text-gray-600 mb-6">July 11 – September 1, 2025 | {selectedRetentionDimension} Life Cycle | Rolling method</p>
-            <div className="bg-gray-50 rounded-lg p-4 mb-6">
-              <img src="/retention_graph.png" alt="Retention Graph" className="w-full h-auto max-h-[60vh] object-contain rounded mx-auto" />
+            <p className="text-sm text-gray-600 mb-4">{selectedRetentionDimension === 'D30' ? 'July 11 – September 1, 2025 | D30 Life Cycle | Flat method' : 'Retention Curve | Rolling method'}</p>
+            <div className="flex flex-wrap gap-2 mb-4">
+              <button
+                onClick={() => setSelectedRetentionDimension('D7')}
+                className={`text-sm px-3 py-1 border border-black rounded-lg hover:bg-gray-50 ${selectedRetentionDimension === 'D7' ? 'bg-gray-100' : ''}`}
+              >
+                Retention Curve
+              </button>
+              <button
+                onClick={() => setSelectedRetentionDimension('D30')}
+                className={`text-sm px-3 py-1 border border-black rounded-lg hover:bg-gray-50 ${selectedRetentionDimension === 'D30' ? 'bg-gray-100' : ''}`}
+              >
+                D30 Life Cycle
+              </button>
             </div>
+            <div className={`${selectedRetentionDimension === 'D30' ? 'mb-6' : 'bg-gray-50 rounded-lg p-4 mb-6'}`}>
+              <img src={selectedRetentionDimension === 'D30' ? '/retention_graph_2.jpeg' : '/retention_graph.png'} alt="Retention Graph" className={`w-full h-auto max-h-[60vh] object-contain ${selectedRetentionDimension === 'D30' ? '' : 'rounded'} mx-auto`} />
+            </div>
+            <div className="text-xs text-gray-500">{selectedRetentionDimension === 'D30' ? '' : 'Retention Curve'}</div>
           </div>
         </div>
       )}
