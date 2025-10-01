@@ -232,6 +232,12 @@ function App({ onLogout }: AppProps) {
           ]
         },
         {
+          title: "Waitlist Users",
+          value: "5,814",
+          description: "Users who joined the waitlist",
+          insight: "Waitlist captures top-of-funnel interest pending activation."
+        },
+        {
           title: "This Month's New Users",
           value: "2,438",
           description: "Last 30 Days",
