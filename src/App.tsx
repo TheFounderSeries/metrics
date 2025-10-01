@@ -258,7 +258,7 @@ function App({ onLogout }: AppProps) {
           title: "North Star Metric",
           value: "12%",
           description: "Percentage of users who achieve ≥1 successful connection by D30.",
-          insight: "We forecast 20% to have +2 successful connections by Nov 2025."
+          insight: "We forecast 30% to have +1 successful connections by Dec 2025."
         },
         {
           title: "Messages per Active User",
