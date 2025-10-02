@@ -226,7 +226,7 @@ function App({ onLogout }: AppProps) {
           insight: "23,561 total users across all platform versions. Series has grown from early testing to current production environment with strong user base foundation.",
           expandedData: [
             { label: "v1-3.5 Beta Users", value: "18,538", description: "Early beta registrations" },
-            { label: "Active Users (v3-v3.5)", value: "7,117", description: "Current active" },
+            { label: "Active Users (v3-v3.5)", value: "13,979", description: "Current active" },
             { label: "New Users (30d)", value: "2,431", description: "Recent registrations" },
             { label: "Waitlist", value: "5,023", description: "Alumni/non.edu" }
           ]
