@@ -64,7 +64,7 @@ function getDefaultData(): CategoryData[] {
 function App({ onLogout, isAdmin = false }: AppProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [expandedSubData, setExpandedSubData] = useState<{ [key: string]: boolean }>({});
-  const [data, setData] = useState<CategoryData[]>(getDefaultData());
+  const [data, setData] = useState<CategoryData[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
