@@ -57,7 +57,7 @@ async function getNextVersion() {
 const DEFAULT_DATA = [
   {
     title: 'Retention',
-    header: 'Retention',
+    header: 'To understand why students stay on Series',
     metrics: [
       {
         title: 'D7 Rolling Across all Cohorts',
@@ -114,7 +114,7 @@ const DEFAULT_DATA = [
   },
   {
     title: 'Conversion',
-    header: 'To understand why they try Series',
+    header: 'To understand how students join Series',
     metrics: [
       {
         title: 'Website Visits (all-time)',
@@ -138,7 +138,7 @@ const DEFAULT_DATA = [
   },
   {
     title: 'User Data',
-    header: 'To understand who is using Series',
+    header: 'To understand the students who use Series',
     metrics: [
       {
         title: 'Profiles',
@@ -161,9 +161,51 @@ const DEFAULT_DATA = [
         value: '90%',
         description: 'Our users are looking to make professional connections to further their careers as current or future entrepreneurs.',
         expandedData: [
-          { label: 'Universities', value: '650+', description: 'Spanning across 6 continents with a strong focus in the United States' },
+          { label: 'Universities', value: '+650', description: 'Spanning across 6 continents with a strong focus in the United States' },
           { label: 'Ivy League Density', value: '35%', description: 'We started with a high-value network of college students' },
-          { label: 'Median User Age', value: '90%', description: 'Our users are college students who average age 18–22' }
+          { label: 'Median User Age', value: '22', description: 'Our users are college students skewing on upperclassmen' }
+        ]
+      }
+    ]
+  },
+  {
+    title: 'Revenue',
+    header: 'Why companies will pay to access our marketplace of college students',
+    metrics: [
+      {
+        title: 'Our Warm-Intro Conversion Rate',
+        value: '20%',
+        description: 'We allow users to create “posts” to reach people who are a good fit for the description that user provided. We allow companies to directly request warm introductions to specific people to help them hire the best talent.',
+        expandedData: [
+          { label: "Linkedin's Conversion Rate", value: '5%', description: 'LinkedIn campaigns at best/average yields on results' },
+          { label: 'Cold Email Conversion Rate', value: '3%', description: 'Cold email campaigns yield even lower results using platforms like Apollo, Salesloft' },
+          { label: 'Currently in talks with', value: 'SVB, Cooley, Fidelity', description: 'Trust-focused enterprise deals for 2025' }
+        ]
+      },
+      {
+        title: 'Business Model',
+        value: '300 Intros/Mo',
+        description: 'Series customers use a custom dashboard to engage with profiles to receive warm-introductions',
+        expandedData: [
+          { label: 'Cost', value: '$5k/Mo', description: 'Can be billed monthly or annually. 300 per month in our SMB bundles.' },
+          { label: 'Credits', value: '300', description: 'Each credit is approved as an intro and is tracked on each customer’s dashboard.' },
+          { label: 'Cost per Intro', value: '$33.00', description: 'Value of a single offer with a verified introduction to a specific user' }
+        ]
+      },
+      {
+        title: 'Potential GMV',
+        value: '$10.3M',
+        description: 'Taking the cost per intro by the amount of profiles on students Series has to date',
+        insight: "The shelf-life of our student profiles is worth $10.3M relative to today’s hiring market"
+      },
+      {
+        title: 'Pipeline ARR',
+        value: '$120,000',
+        description: 'We’re working with 2 companies below who have both signed LOIs for 2026',
+        expandedData: [
+          { label: 'Client 1', value: 'Enttor.ai', description: 'They are betting that Series can replace all other CRMs we currently use' },
+          { label: 'Client 2', value: 'Avelis Health (YC S25)', description: 'They are betting that Series can become the go-to as a “referenced outreach list”' },
+          { label: 'GMV Capture', value: '1.1%', description: 'Our current student profiles we are activating a demand for this on supply' }
         ]
       }
     ]
