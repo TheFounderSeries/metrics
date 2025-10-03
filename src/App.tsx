@@ -785,14 +785,14 @@ function App({ onLogout, isAdmin = false }: AppProps) {
                   const link = cat?.headerLink;
                   if (link?.type === 'url' && link.href) {
                     return (
-                      <a href={link.href} target="_blank" rel="noopener noreferrer" className="text-2xl font-light text-black underline">
+                      <a href={link.href} target="_blank" rel="noopener noreferrer" className="text-2xl font-light text-blue-600 underline">
                         {text}
                       </a>
                     );
                   }
                   if (link?.type === 'image' && link.imageSrc) {
                     return (
-                      <span className="text-2xl font-light text-black underline cursor-pointer" onClick={() => setImageModal(link.imageSrc!)}>{text}</span>
+                      <span className="text-2xl font-light text-blue-600 underline cursor-pointer" onClick={() => setImageModal(link.imageSrc!)}>{text}</span>
                     );
                   }
                   return <h2 className="text-2xl font-light text-black">{text}</h2>;
@@ -880,10 +880,10 @@ function App({ onLogout, isAdmin = false }: AppProps) {
                         ) : (
                           (() => {
                             if (metric.link?.type === 'url' && metric.link.href) {
-                              return <a href={metric.link.href} target="_blank" rel="noopener noreferrer" className="text-lg font-bold text-black underline">{metric.title}</a>;
+                              return <a href={metric.link.href} target="_blank" rel="noopener noreferrer" className="text-lg font-bold text-blue-600 underline">{metric.title}</a>;
                             }
                             if (metric.link?.type === 'image' && metric.link.imageSrc) {
-                              return <span className="text-lg font-bold text-black underline cursor-pointer" onClick={() => setImageModal(metric.link!.imageSrc!)}>{metric.title}</span>;
+                              return <span className="text-lg font-bold text-blue-600 underline cursor-pointer" onClick={() => setImageModal(metric.link!.imageSrc!)}>{metric.title}</span>;
                             }
                             return <h3 className="text-lg font-bold text-black">{metric.title}</h3>;
                           })()
@@ -923,8 +923,8 @@ function App({ onLogout, isAdmin = false }: AppProps) {
                               if (dl) {
                                 try {
                                   const parsed = typeof dl === 'string' ? JSON.parse(dl) : dl;
-                                  if (parsed.type === 'url') return <a href={parsed.href} target="_blank" rel="noopener noreferrer" className="text-sm text-gray-600 underline">{metric.description}</a>;
-                                  if (parsed.type === 'image') return <span className="text-sm text-gray-600 underline cursor-pointer" onClick={() => setImageModal(parsed.href)}>{metric.description}</span>;
+                                  if (parsed.type === 'url') return <a href={parsed.href} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 underline">{metric.description}</a>;
+                                  if (parsed.type === 'image') return <span className="text-sm text-blue-600 underline cursor-pointer" onClick={() => setImageModal(parsed.href)}>{metric.description}</span>;
                                 } catch {}
                               }
                               return <div className="text-sm text-gray-600">{metric.description}</div>;
@@ -956,9 +956,9 @@ function App({ onLogout, isAdmin = false }: AppProps) {
                         ) : (
                           metric.ctaText && metric.ctaLink && (
                             metric.ctaLink.type === 'url' ? (
-                              <a href={metric.ctaLink.href} target="_blank" rel="noopener noreferrer" className="text-base underline">{metric.ctaText}</a>
+                              <a href={metric.ctaLink.href} target="_blank" rel="noopener noreferrer" className="text-base text-blue-600 underline">{metric.ctaText}</a>
                             ) : metric.ctaLink.imageSrc ? (
-                              <span className="text-base underline cursor-pointer" onClick={() => setImageModal(metric.ctaLink!.imageSrc!)}>{metric.ctaText}</span>
+                              <span className="text-base text-blue-600 underline cursor-pointer" onClick={() => setImageModal(metric.ctaLink!.imageSrc!)}>{metric.ctaText}</span>
                             ) : null
                           )
                       )}
@@ -987,8 +987,8 @@ function App({ onLogout, isAdmin = false }: AppProps) {
                             if (il) {
                               try {
                                 const parsed = typeof il === 'string' ? JSON.parse(il) : il;
-                                if (parsed.type === 'url') return <a href={parsed.href} target="_blank" rel="noopener noreferrer" className="text-gray-700 leading-relaxed underline">{metric.insight}</a>;
-                                if (parsed.type === 'image') return <span className="text-gray-700 leading-relaxed underline cursor-pointer" onClick={() => setImageModal(parsed.href)}>{metric.insight}</span>;
+                                if (parsed.type === 'url') return <a href={parsed.href} target="_blank" rel="noopener noreferrer" className="text-blue-600 leading-relaxed underline">{metric.insight}</a>;
+                                if (parsed.type === 'image') return <span className="text-blue-600 leading-relaxed underline cursor-pointer" onClick={() => setImageModal(parsed.href)}>{metric.insight}</span>;
                               } catch {}
                             }
                             return <div className="text-gray-700 leading-relaxed">{metric.insight}</div>;
@@ -1057,10 +1057,10 @@ function App({ onLogout, isAdmin = false }: AppProps) {
                                         ) : (
                                           (() => {
                                             if (item.link?.type === 'url' && item.link.href) {
-                                              return <a href={item.link.href} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-black underline">{item.label}</a>;
+                                              return <a href={item.link.href} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-blue-600 underline">{item.label}</a>;
                                             }
                                             if (item.link?.type === 'image' && item.link.imageSrc) {
-                                              return <span className="text-sm font-bold text-black underline cursor-pointer" onClick={() => setImageModal(item.link!.imageSrc!)}>{item.label}</span>;
+                                              return <span className="text-sm font-bold text-blue-600 underline cursor-pointer" onClick={() => setImageModal(item.link!.imageSrc!)}>{item.label}</span>;
                                             }
                                             return <div className="text-sm font-bold text-black">{item.label}</div>;
                                           })()
