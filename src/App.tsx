@@ -1,465 +1,567 @@
-import React, { useState } from 'react';
-// import SimpleChart from './components/SimpleChart';
+import { useEffect, useState } from 'react';
 
 interface AppProps {
   onLogout?: () => void;
+  isAdmin?: boolean;
 }
 
 interface MetricData {
   title: string;
   value: string;
-  description: string;
-  insight: string;
+  description?: string;
+  insight?: string;
+  ctaText?: string;
+  ctaLink?: LinkSpec;
+  descriptionLink?: LinkSpec;
+  insightLink?: LinkSpec;
   expandedData?: Array<{
     label: string;
     value: string;
     description?: string;
+    link?: LinkSpec;
+    descriptionLink?: LinkSpec;
   }>;
-  ctaLabel?: string;
-  ctaHref?: string;
+  link?: LinkSpec;
+}
+
+interface LinkSpec {
+  type?: 'url' | 'image';
+  href?: string;
+  imageSrc?: string;
 }
 
 interface CategoryData {
   title: string;
+  header?: string;
+  headerLink?: LinkSpec;
   metrics: MetricData[];
 }
 
-interface InfoDefinition {
-  term: string;
-  definition: string;
+function getDefaultData(): CategoryData[] {
+  return [
+    {
+      title: 'Onboarding',
+      metrics: [
+        {
+          title: 'Why they try Series',
+          value: '1.5M',
+          description: 'Website Visits (all-time)',
+          insight:
+            "Since the announcement of our pre-seed round we’ve garnered significant attention. We presume that around 5–10% of this viewage came from college entrepreneurs — our initial ICP.",
+          expandedData: [
+            { label: 'Avg CTA Click-Through Rate', value: '~40%', description: '10x most marketplace CTA benchmarks (2–5%)' },
+            { label: 'Page View (1)', value: '100%', description: '22,925 visits to our website last month' },
+            { label: 'Button Click CTA (2)', value: '36.11%', description: '8,279 individuals last month clicked on our CTA from step (1)' },
+            { label: 'Modal Submission (3)', value: '16.1%', description: '3,692 individuals last month inputted their information on our modal and submitted it' },
+            { label: 'Registered User (4)', value: '10%', description: '2,293 individuals last month opened iMessage after (3) and texted their AI Friend' },
+          ],
+        },
+      ],
+    },
+  ];
 }
 
-function App({ onLogout }: AppProps) {
+function App({ onLogout, isAdmin = false }: AppProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedDefinition, setSelectedDefinition] = useState<InfoDefinition | null>(null);
-  const [expandedSubData, setExpandedSubData] = useState<{[key: string]: boolean}>({});
-  const [selectedDeepDive, setSelectedDeepDive] = useState<null | { type: 'matchLoop' | 'dataSources'; timeframe?: string }>(null);
-  const [showUseCases, setShowUseCases] = useState(false);
-  const [showRoadmap, setShowRoadmap] = useState(false);
-  const [showNorthStar, setShowNorthStar] = useState(false);
-  const [showRetentionDefinition, setShowRetentionDefinition] = useState(false);
-  const [showRetentionGraph, setShowRetentionGraph] = useState(false);
-  const [selectedRetentionDimension, setSelectedRetentionDimension] = useState<'D2' | 'D7' | 'D30'>('D7');
+  const [expandedSubData, setExpandedSubData] = useState<{ [key: string]: boolean }>({});
+  const [data, setData] = useState<CategoryData[]>(getDefaultData());
+  const [isSaving, setIsSaving] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [undoStack, setUndoStack] = useState<CategoryData[][]>([]);
+  const [redoStack, setRedoStack] = useState<CategoryData[][]>([]);
+  const [currentVersion, setCurrentVersion] = useState<number | null>(null);
+  const [revisions, setRevisions] = useState<Array<{ version: number; minor?: number; status: string; createdAt?: string; updatedAt?: string }>>([]);
+  const [imageModal, setImageModal] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
-  const toggleSubData = (metricTitle: string) => {
-    setExpandedSubData((prev: { [key: string]: boolean }) => ({
+  const clone = (d: CategoryData[]): CategoryData[] => JSON.parse(JSON.stringify(d));
+  const reorderArray = <T,>(arr: T[], fromIndex: number, toIndex: number): T[] => {
+    const next = arr.slice();
+    if (fromIndex < 0 || toIndex < 0 || fromIndex >= next.length || toIndex >= next.length) return next;
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved);
+    return next;
+  };
+
+  const handleImageUpload = async (file: File, onSuccess: (href: string) => void) => {
+    setIsUploading(true);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const res = await fetch('/api/images', { method: 'POST', body: form });
+      if (!res.ok) throw new Error('Upload failed');
+      const body = await res.json();
+      const url = `/api/images/${body.id}`;
+      onSuccess(url);
+      setSaveMessage('Image uploaded');
+    } catch (e) {
+      setSaveMessage('Image upload failed');
+    } finally {
+      setIsUploading(false);
+      setTimeout(() => setSaveMessage(null), 2000);
+    }
+  };
+
+  const toggleSubData = (key: string) => {
+    setExpandedSubData((prev) => ({
       ...prev,
-      [metricTitle]: !prev[metricTitle]
+      [key]: prev[key] === undefined ? false : !prev[key],
     }));
   };
 
-  const infoDefinitions: InfoDefinition[] = [
-    { term: "Total Users", definition: "All-time registered users since platform launch. Represents the complete user base across all platform versions and environments. Used as the primary growth metric for overall platform adoption." },
-    { term: "Monthly Growth Rate", definition: "New user acquisition rate in last 30 days. Percentage increase in user registrations over a rolling 30-day period, indicating platform momentum. Calculated as new users divided by existing base." },
-    { term: "Messages per Active User", definition: "Messages per user metric, showing depth of participation per user. Average lifetime messages sent per active user in the controlled environment. Indicates engagement density beyond surface-level activity." },
-    { term: "Monthly Message Volume", definition: "Total messages sent across all users in the last 30 days. Indicates overall platform engagement and communication activity levels. Primary measure of active platform usage." },
-    { term: "Match Loop Engagement", definition: "Users actively participating in connection requests and responses. Core product cycle where users receive, evaluate, and respond to potential connections. Represents engaged user behavior." },
-    { term: "Monthly Active Users", definition: "User who sends at least one text within a rolling 30-day window. Primary engagement metric for sustained platform participation. Standard industry measure for active usage." },
-    { term: "WAU/MAU Ratio", definition: "Stickiness measure — proportion of monthly users also active weekly. User who sends at least one text within a rolling 7-day window divided by MAU. Higher ratios indicate better retention." },
-    { term: "DAU/MAU Ratio", definition: "Stickiness measure — proportion of monthly users also active daily. User who sends at least one text within a rolling 1-day window divided by MAU. Key metric for daily engagement patterns." },
-    { term: "Web Funnel Completion", definition: "Combined onboarding flow via the web landing page and the text FSM funnel. Overall conversion rate from initial landing page visit to account completion. Measures onboarding effectiveness." },
-    { term: "Text Onboarding (FSM)", definition: "Text onboarding state machine used to guide users before they complete onboarding. Progression: pre-prompt sent → profile edit → completion (first accept or request). Finite State Machine approach." },
-    { term: "First Match Acceptance", definition: "User opt-in to confirm a match. Acceptance rate for users' very first match presentation, indicating AI matching quality and trust moat creation. Critical validation metric." },
-    { term: "Day 7 Retention", definition: "Percentage of users still active 7 days since first activity. Users returning after one week, following real-life texting cadence rather than dopamine loops. Key retention benchmark." },
-    { term: "Cohort Analysis", definition: "Rolling method (point-in-time activity and ongoing vs original cohort size). Retention tracking for specific user groups over defined time periods. Measures long-term user engagement patterns." },
-    { term: "Average User Age", definition: "Mean age across all active users in the platform. Demographic indicator for target market alignment with Gen Z founders, interns, and early graduates. ICP validation metric." },
-    { term: "Press Coverage", definition: "External reach tracked across media coverage and platform analytics. Media mentions and impressions across major publications and social platforms. Brand awareness and distribution metric." },
-    { term: "Recent Match Acceptance Trends", definition: "Network-wide acceptance rate calculated across initiators and recipients once a match is presented. Weekly acceptance patterns showing experimental pulses and provider constraints. Real-time engagement indicator." },
-    { term: "MAU", definition: "User who sends at least one text within a rolling 30-day window." },
-    { term: "WAU", definition: "User who sends at least one text within a rolling 7-day window." },
-    { term: "DAU", definition: "User who sends at least one text within a rolling 1-day window." },
-    { term: "Active Users", definition: "Users active in the v3–v4 environment (first public beta onward). Used as denominator for messages per user." },
-    { term: "FSM", definition: "Text onboarding state machine used to guide users before they complete onboarding." },
-    { term: "Match Loop", definition: "Users actively participating in connection requests and responses." },
-    { term: "Trust Moat", definition: "AI matchmaking creates significant competitive advantage through high acceptance rates and user confidence." },
-    { term: "Text-native", definition: "Platform designed around text messaging as primary interface, not passive-scroll feeds." },
-    { term: "ICP", definition: "Initial demographic base: top-50 universities, Gen Z students, founders, interns, early grads, and alumni." },
-    { term: "K-factor", definition: "Viral coefficient measuring how many new users each existing user brings to the platform." },
-    { term: "Engagement Density", definition: "Messages per user metric, showing depth of participation per user." }
-  ];
-
-  // Confidence handling for new deep-dive stats
-  const CONFIDENCE_THRESHOLD = 0.25; // omit stats below 25%
-
-  type ConfidenceValue = { label: string; value: number | string; confidence?: number; note?: string };
-
-  // Data Sources Breakdown (Users / Messages by source)
-  const dataSourcesBreakdown: {
-    users: ConfidenceValue[];
-    messages: ConfidenceValue[];
-    totals: { usersTotal: number; messagesTotal: number; supabaseUsersCurrent?: number };
-  } = {
-    users: [
-      { label: 'Users from Firestore', value: 2553, confidence: 1 },
-      { label: 'Users from Botpress', value: 8979, confidence: 1 },
-      { label: 'Waitlist Users', value: 5814, confidence: 1 },
-      { label: 'Users from Mongo (V2)', value: 4065, confidence: 1 },
-      { label: 'Users from Mongo (V3)', value: 5691, confidence: 1 },
-      { label: 'Additional Users from Supabase', value: 1459, confidence: 1 }
-    ],
-    messages: [
-      { label: 'Messages from LoopMessage (excluding GCs)', value: 197740, confidence: 1 },
-      { label: 'Estimated Messages from LoopMessage GCs', value: 65913, confidence: 1 },
-      { label: 'Messages from Mongo (V2)', value: 110163, confidence: 1 },
-      { label: 'Messages from Mongo (V3)', value: 223433, confidence: 1 },
-      { label: 'Additional Messages from Supabase', value: 94179, confidence: 1 }
-    ],
-    totals: { usersTotal: 23561, messagesTotal: 691428, supabaseUsersCurrent: 7150 }
-  };
-
-  // Match Loop Deep Dive per timeframe
-  type MatchLoopFrame = {
-    label: string;
-    stats: ConfidenceValue[];
-  };
-
-  const matchLoopDeepDive: MatchLoopFrame[] = [
-    {
-      label: 'All Time (Since V3)',
-      stats: [
-        { label: '[A] Presented upon request', value: 8178, confidence: 1 },
-        { label: '[B] Responded by initiator', value: 1569, confidence: 1 },
-        { label: '[C] Accepted when presented', value: 1171, confidence: 1 },
-        { label: '[D] Users presented ≥ 1 (ask)', value: 2196, confidence: 1 },
-        { label: '[E] Users responded ≥ 1', value: 663, confidence: 1 },
-        { label: '[F] Users accepted ≥ 1', value: 492, confidence: 1 },
-        { label: '[F/E] Acceptance rate', value: '74.21%', confidence: 1 },
-        { label: 'Presented beyond initial', value: 1256, confidence: 1 },
-        { label: '[G] Responded beyond initial', value: 542, confidence: 1 },
-        { label: '[H] Accepted beyond initial', value: 427, confidence: 1 },
-        { label: '[H/G] Beyond-initial acceptance', value: '78.78%', confidence: 1 },
-        { label: 'Presented (asked or matched)', value: 2644, confidence: 1 },
-        { label: '[I] Responded (either side)', value: 2461, confidence: 1 },
-        { label: 'Acceptance (either side)', value: '93.08%', confidence: 1 }
-      ]
-    },
-    {
-      label: 'Past 30 days',
-      stats: [
-        { label: '[A] Presented upon request', value: 5275, confidence: 1 },
-        { label: '[B] Responded by initiator', value: 1533, confidence: 1 },
-        { label: '[C] Accepted when presented', value: 1142, confidence: 1 },
-        { label: '[D] Users presented ≥ 1 (ask)', value: 1369, confidence: 1 },
-        { label: '[E] Users responded ≥ 1', value: 653, confidence: 1 },
-        { label: '[F] Users accepted ≥ 1', value: 482, confidence: 1 },
-        { label: '[F/E] Acceptance rate', value: '73.81%', confidence: 1 },
-        { label: 'Presented beyond initial', value: 895, confidence: 1 },
-        { label: '[G] Responded beyond initial', value: 534, confidence: 1 },
-        { label: '[H] Accepted beyond initial', value: 420, confidence: 1 },
-        { label: '[H/G] Beyond-initial acceptance', value: '78.65%', confidence: 1 },
-        { label: 'Presented (asked or matched)', value: 2812, confidence: 1 },
-        { label: 'Responded (either side)', value: 1735, confidence: 1 },
-        { label: 'Accepted (either side)', value: 1560, confidence: 1 },
-        { label: 'Acceptance (either side)', value: '89.91%', confidence: 1 }
-      ]
-    },
-    {
-      label: '2025-09-10 → 2025-09-17',
-      stats: [
-        { label: '[A] Presented upon request', value: 618, confidence: 1 },
-        { label: '[B] Responded by initiator', value: 289, confidence: 1 },
-        { label: '[C] Accepted when presented', value: 145, confidence: 1 },
-        { label: '[D] Users presented ≥ 1 (ask)', value: 211, confidence: 1 },
-        { label: '[E] Users responded ≥ 1', value: 117, confidence: 1 },
-        { label: '[F] Users accepted ≥ 1', value: 86, confidence: 1 },
-        { label: '[F/E] Acceptance rate', value: '73.50%', confidence: 1 },
-        { label: 'Presented beyond initial', value: 149, confidence: 1 },
-        { label: '[G] Responded beyond initial', value: 104, confidence: 1 },
-        { label: '[H] Accepted beyond initial', value: 73, confidence: 1 },
-        { label: '[H/G] Beyond-initial acceptance', value: '70.19%', confidence: 1 },
-        { label: 'Presented (asked or matched)', value: 271, confidence: 1 },
-        { label: 'Responded (either side)', value: 234, confidence: 1 },
-        { label: 'Acceptance (either side)', value: '86.35%', confidence: 1 }
-      ]
-    },
-    {
-      label: '2025-09-03 → 2025-09-10',
-      stats: [
-        { label: '[A] Presented upon request', value: 1054, confidence: 1 },
-        { label: '[B] Responded by initiator', value: 252, confidence: 1 },
-        { label: '[C] Accepted when presented', value: 241, confidence: 1 },
-        { label: '[D] Users presented ≥ 1 (ask)', value: 288, confidence: 1 },
-        { label: '[E] Users responded ≥ 1', value: 87, confidence: 1 },
-        { label: '[F] Users accepted ≥ 1', value: 85, confidence: 1 },
-        { label: '[F/E] Acceptance rate', value: '97.70%', confidence: 1 },
-        { label: 'Presented beyond initial', value: 180, confidence: 1 },
-        { label: '[G] Responded beyond initial', value: 76, confidence: 1 },
-        { label: '[H] Accepted beyond initial', value: 75, confidence: 1 },
-        { label: '[H/G] Beyond-initial acceptance', value: '98.68%', confidence: 1 },
-        { label: 'Presented (asked or matched)', value: 638, confidence: 1 },
-        { label: 'Responded (either side)', value: 636, confidence: 1 },
-        { label: 'Acceptance (either side)', value: '99.69%', confidence: 1 }
-      ]
-    },
-    {
-      label: '2025-08-27 → 2025-09-03',
-      stats: [
-        { label: '[A] Presented upon request', value: 2422, confidence: 1 },
-        { label: '[B] Responded by initiator', value: 526, confidence: 1 },
-        { label: '[C] Accepted when presented', value: 484, confidence: 1 },
-        { label: '[D] Users presented ≥ 1 (ask)', value: 591, confidence: 1 },
-        { label: '[E] Users responded ≥ 1', value: 198, confidence: 1 },
-        { label: '[F] Users accepted ≥ 1', value: 187, confidence: 1 },
-        { label: '[F/E] Acceptance rate', value: '94.44%', confidence: 1 },
-        { label: 'Presented beyond initial', value: 418, confidence: 1 },
-        { label: '[G] Responded beyond initial', value: 186, confidence: 1 },
-        { label: '[H] Accepted beyond initial', value: 175, confidence: 1 },
-        { label: '[H/G] Beyond-initial acceptance', value: '94.09%', confidence: 1 },
-        { label: 'Presented (asked or matched)', value: 1027, confidence: 1 },
-        { label: 'Responded (either side)', value: 1016, confidence: 1 },
-        { label: 'Acceptance (either side)', value: '98.93%', confidence: 1 }
-      ]
-    }
-  ];
-
-  const filterByConfidence = (items: ConfidenceValue[]) =>
-    items.filter((i) => (i.confidence ?? 1) >= CONFIDENCE_THRESHOLD);
-
-  const data: CategoryData[] = [
-    {
-      title: "Growth",
-      metrics: [
-        {
-          title: "Total Users",
-          value: "23,561",
-          description: "",
-          insight: "23,561 total users across all platform versions. Series has grown from early testing to current production environment with strong user base foundation.",
-          expandedData: [
-            { label: "v1-3.5 Beta Users", value: "18,538", description: "Early beta registrations" },
-            { label: "Active Users (v3-v3.5)", value: "13,979", description: "Current active" },
-            { label: "New Users (30d)", value: "2,431", description: "Recent registrations" },
-            { label: "Waitlist", value: "5,023", description: "Alumni/non.edu" }
-          ]
-        },
-        {
-          title: "Waitlist Users",
-          value: "5,814",
-          description: "Users who joined the waitlist",
-          insight: "Waitlist captures top-of-funnel interest pending activation."
-        },
-        {
-          title: "This Month's New Users",
-          value: "2,438",
-          description: "Last 30 Days",
-          insight: "",
-          expandedData: [
-            { label: "New Users (30d)", value: "2,438", description: "Recent signups" },
-            { label: "Monthly Average", value: "2,375", description: "Long-term average" },
-            { label: "Matches Received When Requested", value: "1,823", description: "Curr avg. response = 2.2 days" },
-            { label: "Match Requesters", value: "1,277", description: "Users asking for matches" }
-          ]
-        },
-        {
-          title: "Skeleton Profiles",
-          value: "330,000",
-          description: "Enriched from User Scrapes",
-          insight: ""
+  // Fetch from API
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await fetch('/api/dataroom');
+        if (!res.ok) throw new Error('Failed to fetch');
+        const body = await res.json();
+        if (body && Array.isArray(body.data)) {
+          setData(body.data);
+          setHasUnsavedChanges(false);
+          setUndoStack([]);
+          setRedoStack([]);
+          setCurrentVersion(body.version ? body.version : null);
+          // Open all dropdowns by default
+          const defaults: { [key: string]: boolean } = {};
+          body.data.forEach((cat: any) => {
+            cat.metrics?.forEach((m: any, idx: number) => {
+              defaults[`${cat.title}-${idx}`] = true;
+            });
+          });
+          setExpandedSubData(defaults);
         }
-      ]
-    },
-    {
-      title: "Engagement",
-      metrics: [
-        {
-          title: "North Star Metric",
-          value: "12%",
-          description: "Percentage of users who achieve ≥1 successful connection by D30.",
-          insight: "We forecast 30% to have +1 successful connections by Dec 2025."
-        },
-        {
-          title: "Messages per Active User",
-          value: "15.3",
-          description: "Message activity",
-          insight: "15.3 messages per user shows people actively use Series for conversations. Users send meaningful messages rather than quick interactions.",
-          expandedData: [
-            { label: "Total Messages", value: "691,428", description: "All messages sent" },
-            { label: "Active Users", value: "7,117", description: "Current users" },
-            { label: "Monthly Rate", value: "25.3", description: "Recent activity" }
-          ]
-        },
-        {
-          title: "Monthly Message Volume",
-          value: "43,745",
-          description: "Recent messages",
-          insight: "43,745 messages sent last month. Series users communicate regularly, showing the platform facilitates real conversations.",
-          expandedData: [
-            { label: "Last Month Messages", value: "43,745", description: "Monthly total" },
-            { label: "Active Users", value: "1,726", description: "Messaging users" },
-            { label: "Per User Rate", value: "25.3", description: "Individual activity" }
-          ]
-        },
-        {
-          title: "Recent Match Acceptance Trends",
-          value: "83%",
-          description: "Weekly acceptance",
-          insight: "Weekly acceptance rates vary from 53-97%. Series matching performance changes based on user activity and system updates.",
-          expandedData: [
-            { label: "Aug 27-Sep 3", value: "94.4%", description: "187 users accepted" },
-            { label: "Sep 3-10", value: "97.7%", description: "85 users accepted" },
-            { label: "Sep 10-17", value: "73.5%", description: "86 users accepted" },
-            { label: "Overall Average", value: "83%", description: "Generalized acceptance rate" }
-          ]
-        }
-      ]
-    },
-    {
-      title: "Activity",
-      metrics: [
-        {
-          title: "Monthly Active Users",
-          value: "1,476",
-          description: "Active users",
-          insight: "1,476 users active monthly. Series maintains consistent engagement with users returning for connections.",
-          expandedData: [
-            { label: "Match Activity (MAU)", value: "1,476", description: "Monthly match participants" },
-            { label: "Weekly Active Users", value: "339", description: "Weekly messagers" },
-            { label: "Daily Active Users", value: "66", description: "Daily messagers" },
-            { label: "Recent 7-day DAU", value: "47", description: "Last week avg (mild softness)" }
-          ]
-        },
-        {
-          title: "WAU/MAU Ratio",
-          value: "23.0%",
-          description: "Weekly engagement",
-          insight: "23.0% of monthly users return weekly (339/1476). Series users come back regularly rather than using it once and leaving."
-        },
-        {
-          title: "DAU/MAU Ratio",
-          value: "4.5%",
-          description: "Daily engagement",
-          insight: "4.5% of monthly users active daily (66/1476). Series users engage intentionally for connections rather than daily browsing.",
-          expandedData: [
-            { label: "Daily Active Users", value: "66", description: "30-day avg" },
-            { label: "DAU/WAU Ratio", value: "19.5%", description: "Daily/weekly (66/339)" },
-            { label: "Recent 7-day DAU", value: "47", description: "Week-over-week softness" }
-          ]
-        }
-      ]
-    },
-    {
-      title: "Conversion",
-      metrics: [
-        {
-          title: "Web Funnel Completion",
-          value: "10%",
-          description: "Signup completion",
-          insight: "10% of website visitors complete signup. (Since v3.5 landing changes)",
-          expandedData: [
-            { label: "Landings", value: "18,488", description: "Website visits (Sept. 1-21)" },
-            { label: "First Click", value: "6,689", description: "Started signup (Sept. 1-21)" },
-            { label: "Intermediate Steps (2-4)", value: "2,907", description: "Continued process (Sept. 1-21)" },
-            { label: "Completions", value: "1,815", description: "Finished signup (Sept. 1-21)" }
-          ]
-        },
-        {
-          title: "Text Onboarding (FSM)",
-          value: "65%",
-          description: "Text setup completion",
-          insight: "65% complete text onboarding (Since v3.5 intro flow changes)",
-          expandedData: [
-            { label: "Start Rate", value: "100%", description: "Pre Prompt Sent" },
-            { label: "Profile Edit", value: "84%", description: "Add details" },
-            { label: "Completion", value: "65%", description: "Post Edit" }
-          ]
-        },
-        {
-          title: "First Match Acceptance",
-          value: "83.9%",
-          description: "First match success",
-          insight: "83.9% accept their first match. Series' matching system creates good first impressions for new users.",
-          expandedData: [
-            { label: "Aug 27-Sep 3", value: "94.4%", description: "187 users accepted" },
-            { label: "Sep 3-10", value: "97.7%", description: "85 users accepted" },
-            { label: "Sep 10-17", value: "73.5%", description: "86 users accepted" },
-            { label: "Overall Average", value: "83%", description: "Generalized acceptance rate" }
-          ]
-        }
-      ]
-    },
-    {
-      title: "Retention",
-      metrics: [
-        {
-          title: "Retention Averages across all our Cohorts",
-          value: "D7 Rolling = 95.51%",
-          description: "D7 Rolling",
-          insight: "Retention is calculated by a user who on Dx opens and reads a message from their AI Friend.",
-          expandedData: [
-            { label: "D1 Rolling", value: "96.63%", description: "1-day return rate" },
-            { label: "D7 Rolling", value: "95.51%", description: "7-day return rate" },
-            { label: "D30 Rolling", value: "92.85%", description: "30-day return rate" }
-          ]
-        }
-      ]
-    },
-    {
-      title: "Demographics",
-      metrics: [
-        {
-          title: "Average User Age",
-          value: "23.6",
-          description: "User age",
-          insight: "Average age is 23.6 years. Series attracts college students and recent graduates who are building careers and connections.",
-          expandedData: [
-            { label: "Average Age", value: "23.6", description: "Mean age" },
-            { label: "University Students", value: "650+", description: "College users" },
-            { label: "Primary Users", value: "Gen Z", description: "Young professionals" }
-          ]
-        }
-      ]
-    },
-    {
-      title: "Distribution",
-      metrics: [
-        {
-          title: "Press Coverage",
-          value: "+200",
-          description: "Media mentions",
-          insight: "",
-          expandedData: [
-            { label: "Press Mentions", value: "+200", description: "Media coverage" },
-            { label: "Total Impressions", value: "+350M", description: "Reach" },
-            { label: "Site Visits", value: "+1.5M", description: "Website traffic" }
-          ]
-        }
-      ]
-    },
-    {
-      title: "B2B",
-      metrics: [
-        {
-          title: "Projected ARR for 2026",
-          value: "$120,000",
-          description: "",
-          insight: "Based month-to-month quotes in effect January 2026.",
-          ctaLabel: "View Demo",
-          ctaHref: "https://drive.google.com/file/d/19f8n3rNZ-OqnptEsGcAu0Xlwryn4VIV4/view",
-          expandedData: [
-            { label: "Enttor.ai", value: "$5,000 MRR (Jan 2026 start)", description: "Sound price point to begin; aiming to replace other CRMs." },
-            { label: "Avelis Health (YCW25)", value: "$5,000 MRR (Jan 2026 start)", description: "Competitive for entire team; envision Series as standalone outreach tool post-onboarding." }
-          ]
-        }
-      ]
-    },
-  ];
+      } catch (e) {
+        // Fallback to defaults silently in view
+        console.warn('Using default data; failed to fetch from API');
+      }
+    };
+    fetchData();
+  }, []);
 
-  const handleDefinitionClick = (title: string) => {
-    const definition = infoDefinitions.find(def => def.term === title);
-    if (definition) {
-      setSelectedDefinition(definition);
+  // Load revision list on admin/edit
+  useEffect(() => {
+    if (!isAdmin) return;
+    const load = async () => {
+      try {
+        const res = await fetch('/api/revisions');
+        if (res.ok) {
+          const list = await res.json();
+          setRevisions(list);
+        }
+      } catch {}
+    };
+    void load();
+  }, [isAdmin]);
+
+  const handleSave = async (opts?: { exitEditMode?: boolean }) => {
+    // Proxy to draft saving in edit mode
+    setIsSaving(true);
+    setSaveMessage(null);
+    try {
+      await saveDraftRevision();
+      setSaveMessage('Saved');
+      setHasUnsavedChanges(false);
+      if (opts?.exitEditMode) {
+        setEditMode(false);
+      }
+    } catch (e) {
+      setSaveMessage('Save failed');
+    } finally {
+      setIsSaving(false);
+      setTimeout(() => setSaveMessage(null), 2000);
     }
   };
 
-  const closeDefinitionModal = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      setSelectedDefinition(null);
+  const handleToggleEditMode = async () => {
+    if (editMode) {
+      if (hasUnsavedChanges) {
+        const shouldSave = window.confirm('You have unsaved changes. OK to save draft and exit, or Cancel to discard and exit.');
+        if (shouldSave) {
+          await handleSave({ exitEditMode: true });
+        } else {
+          // Reload from server to discard local changes
+          try {
+            const res = await fetch('/api/dataroom');
+            if (res.ok) {
+              const body = await res.json();
+              if (body && Array.isArray(body.data)) {
+                setData(body.data);
+              }
+            }
+          } catch {}
+          setHasUnsavedChanges(false);
+          setEditMode(false);
+        }
+      } else {
+        setEditMode(false);
+      }
+    } else {
+      setEditMode(true);
     }
   };
 
-  const closeCategoryModal = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
+  const createDraftFromCurrent = async (): Promise<number> => {
+    const res = await fetch('/api/revisions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data }),
+    });
+    if (!res.ok) throw new Error('Failed to create draft');
+    const body = await res.json();
+    setCurrentVersion(body.version);
+    setRevisions((r) => [{ version: body.version, status: 'draft' }, ...r]);
+    return body.version as number;
+  };
+
+  const loadRevision = async (version: number, minor?: number) => {
+    if (hasUnsavedChanges && editMode) {
+      const ok = window.confirm('Unsaved changes will be lost. Continue?');
+      if (!ok) return;
+    }
+    const res = await fetch(`/api/revisions/${version}${minor != null ? `?minor=${minor}` : ''}`);
+    if (res.ok) {
+      const body = await res.json();
+      setData(body.data || []);
+      setCurrentVersion(body.version || null);
+      setHasUnsavedChanges(false);
+      setUndoStack([]);
+      setRedoStack([]);
+    }
+  };
+
+  const reloadRevisionList = async () => {
+    try {
+      const res = await fetch('/api/revisions');
+      if (res.ok) {
+        const list = await res.json();
+        setRevisions(list);
+      }
+    } catch {}
+  };
+
+  const saveDraftRevision = async () => {
+    setIsSaving(true);
+    setSaveMessage(null);
+    try {
+      let version = currentVersion;
+      if (version == null) {
+        version = await createDraftFromCurrent();
+      } else {
+        // Ensure we are updating a draft. If currentVersion is published/archived, create a new draft.
+        let status: string | undefined = undefined;
+        try {
+          const revRes = await fetch(`/api/revisions/${version}`);
+          if (revRes.ok) {
+            const rev = await revRes.json();
+            status = rev.status;
+          }
+        } catch {}
+        if (status !== 'draft') {
+          version = await createDraftFromCurrent();
+        } else {
+          const res = await fetch(`/api/revisions/${version}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data }),
+          });
+          if (!res.ok) throw new Error('Failed to save draft');
+        }
+      }
+      await reloadRevisionList();
+      setHasUnsavedChanges(false);
+      setSaveMessage('Saved');
+    } catch (e) {
+      setSaveMessage('Save failed');
+    } finally {
+      setIsSaving(false);
+      setTimeout(() => setSaveMessage(null), 2000);
+    }
+  };
+
+  const publishRevision = async () => {
+    let toPublish = currentVersion;
+    if (toPublish == null) {
+      toPublish = await createDraftFromCurrent();
+    }
+    const res = await fetch(`/api/publish/${toPublish}`, { method: 'POST' });
+    if (!res.ok) throw new Error('Failed to publish');
+    setRevisions((r) => r.map((x) => ({ ...x, status: x.version === toPublish ? 'published' : (x.status === 'published' ? 'archived' : x.status) })));
+    setHasUnsavedChanges(false);
+  };
+
+  // Autosave (debounced)
+  useEffect(() => {
+    if (!editMode || !hasUnsavedChanges || isSaving) return;
+    const id = setTimeout(() => {
+      void saveDraftRevision();
+    }, 1500);
+    return () => clearTimeout(id);
+  }, [data, editMode, hasUnsavedChanges, isSaving]);
+
+  const handleUndo = () => {
+    setUndoStack((prev) => {
+      if (prev.length === 0) return prev;
+      const nextUndo = [...prev];
+      const previousState = nextUndo.pop() as CategoryData[];
+      setRedoStack((r) => [...r, clone(data)]);
+      setData(previousState);
+      setHasUnsavedChanges(true);
+      return nextUndo;
+    });
+  };
+
+  const handleRedo = () => {
+    setRedoStack((prev) => {
+      if (prev.length === 0) return prev;
+      const nextRedo = [...prev];
+      const nextState = nextRedo.pop() as CategoryData[];
+      setUndoStack((u) => [...u, clone(data)]);
+      setData(nextState);
+      setHasUnsavedChanges(true);
+      return nextRedo;
+    });
+  };
+
+  const updateMetricField = (
+    categoryTitle: string,
+    metricTitle: string,
+    field: keyof MetricData,
+    value: string
+  ) => {
+    setUndoStack((s) => [...s, clone(data)]);
+    setRedoStack([]);
+    setData((prev) =>
+      prev.map((cat) => {
+        if (cat.title !== categoryTitle) return cat;
+        return {
+          ...cat,
+          metrics: cat.metrics.map((m) => (m.title === metricTitle ? { ...m, [field]: value } : m)),
+        };
+      })
+    );
+    setHasUnsavedChanges(true);
+  };
+
+  const addMetric = (categoryTitle: string) => {
+    setUndoStack((s) => [...s, clone(data)]);
+    setRedoStack([]);
+    setData((prev) =>
+      prev.map((cat) => {
+        if (cat.title !== categoryTitle) return cat;
+        const newMetric: MetricData = {
+          title: 'New Tile',
+          value: '',
+          description: '',
+          insight: '',
+          expandedData: [],
+        };
+        return { ...cat, metrics: [...cat.metrics, newMetric] };
+      })
+    );
+    setHasUnsavedChanges(true);
+  };
+
+  const removeMetric = (categoryTitle: string, metricTitle: string) => {
+    setUndoStack((s) => [...s, clone(data)]);
+    setRedoStack([]);
+    setData((prev) =>
+      prev.map((cat) => {
+        if (cat.title !== categoryTitle) return cat;
+        return {
+          ...cat,
+          metrics: cat.metrics.filter((m) => m.title !== metricTitle),
+        };
+      })
+    );
+    setHasUnsavedChanges(true);
+  };
+
+  const updateExpandedItem = (
+    categoryTitle: string,
+    metricTitle: string,
+    index: number,
+    field: 'label' | 'value' | 'description',
+    value: string
+  ) => {
+    setUndoStack((s) => [...s, clone(data)]);
+    setRedoStack([]);
+    setData((prev) =>
+      prev.map((cat) => {
+        if (cat.title !== categoryTitle) return cat;
+        return {
+          ...cat,
+          metrics: cat.metrics.map((m) => {
+            if (m.title !== metricTitle) return m;
+            const items = m.expandedData ? [...m.expandedData] : [];
+            if (!items[index]) return m;
+            items[index] = { ...items[index], [field]: value };
+            return { ...m, expandedData: items };
+          }),
+        };
+      })
+    );
+    setHasUnsavedChanges(true);
+  };
+
+  const updateMetricLink = (
+    categoryTitle: string,
+    metricTitle: string,
+    href: string
+  ) => {
+    setUndoStack((s) => [...s, clone(data)]);
+    setRedoStack([]);
+    setData((prev) =>
+      prev.map((cat) => {
+        if (cat.title !== categoryTitle) return cat;
+        return {
+          ...cat,
+          metrics: cat.metrics.map((m) =>
+            m.title === metricTitle
+              ? { ...m, link: href ? { type: href.startsWith('http') ? 'url' : 'image', href, imageSrc: href } : undefined }
+              : m
+          ),
+        };
+      })
+    );
+    setHasUnsavedChanges(true);
+  };
+
+  const updateExpandedLink = (
+    categoryTitle: string,
+    metricTitle: string,
+    index: number,
+    href: string
+  ) => {
+    setUndoStack((s) => [...s, clone(data)]);
+    setRedoStack([]);
+    setData((prev) =>
+      prev.map((cat) => {
+        if (cat.title !== categoryTitle) return cat;
+        return {
+          ...cat,
+          metrics: cat.metrics.map((m) => {
+            if (m.title !== metricTitle) return m;
+            const items = m.expandedData ? [...m.expandedData] : [];
+            if (!items[index]) return m;
+            items[index] = {
+              ...items[index],
+              link: href ? { type: href.startsWith('http') ? 'url' : 'image', href, imageSrc: href } : undefined,
+            };
+            return { ...m, expandedData: items };
+          }),
+        };
+      })
+    );
+    setHasUnsavedChanges(true);
+  };
+
+  const addCategory = () => {
+    setUndoStack((s) => [...s, clone(data)]);
+    setRedoStack([]);
+    setData((prev) => [
+      ...prev,
+      {
+        title: 'New Category',
+        header: 'New Category',
+        metrics: [],
+      },
+    ]);
+    setHasUnsavedChanges(true);
+  };
+
+  const removeCategory = (categoryTitle: string) => {
+    setUndoStack((s) => [...s, clone(data)]);
+    setRedoStack([]);
+    setData((prev) => prev.filter((c) => c.title !== categoryTitle));
+    if (selectedCategory === categoryTitle) {
       setSelectedCategory(null);
     }
+    setHasUnsavedChanges(true);
+  };
+
+  const addExpandedItem = (categoryTitle: string, metricTitle: string) => {
+    setUndoStack((s) => [...s, clone(data)]);
+    setRedoStack([]);
+    setData((prev) =>
+      prev.map((cat) => {
+        if (cat.title !== categoryTitle) return cat;
+        return {
+          ...cat,
+          metrics: cat.metrics.map((m) => {
+            if (m.title !== metricTitle) return m;
+            const items = m.expandedData ? [...m.expandedData] : [];
+            items.push({ label: 'New Subtile', value: '', description: '' });
+            return { ...m, expandedData: items };
+          }),
+        };
+      })
+    );
+    setHasUnsavedChanges(true);
+  };
+
+  const removeExpandedItem = (categoryTitle: string, metricTitle: string, index: number) => {
+    setUndoStack((s) => [...s, clone(data)]);
+    setRedoStack([]);
+    setData((prev) =>
+      prev.map((cat) => {
+        if (cat.title !== categoryTitle) return cat;
+        return {
+          ...cat,
+          metrics: cat.metrics.map((m) => {
+            if (m.title !== metricTitle) return m;
+            const items = m.expandedData ? [...m.expandedData] : [];
+            if (index < 0 || index >= items.length) return m;
+            items.splice(index, 1);
+            return { ...m, expandedData: items };
+          }),
+        };
+      })
+    );
+    setHasUnsavedChanges(true);
+  };
+
+  const moveMetric = (categoryTitle: string, fromIndex: number, toIndex: number) => {
+    setUndoStack((s) => [...s, clone(data)]);
+    setRedoStack([]);
+    setData((prev) =>
+      prev.map((cat) => {
+        if (cat.title !== categoryTitle) return cat;
+        return {
+          ...cat,
+          metrics: reorderArray(cat.metrics, fromIndex, toIndex),
+        };
+      })
+    );
+    setHasUnsavedChanges(true);
+  };
+
+  const moveExpandedItem = (categoryTitle: string, metricTitle: string, fromIndex: number, toIndex: number) => {
+    setUndoStack((s) => [...s, clone(data)]);
+    setRedoStack([]);
+    setData((prev) =>
+      prev.map((cat) => {
+        if (cat.title !== categoryTitle) return cat;
+        return {
+          ...cat,
+          metrics: cat.metrics.map((m) => {
+            if (m.title !== metricTitle) return m;
+            const items = m.expandedData ? reorderArray(m.expandedData, fromIndex, toIndex) : [];
+            return { ...m, expandedData: items };
+          }),
+        };
+      })
+    );
+    setHasUnsavedChanges(true);
+  };
+
+  const moveCategory = (fromIndex: number, toIndex: number) => {
+    setUndoStack((s) => [...s, clone(data)]);
+    setRedoStack([]);
+    setData((prev) => reorderArray(prev, fromIndex, toIndex));
+    setHasUnsavedChanges(true);
   };
 
   return (
@@ -468,7 +570,78 @@ function App({ onLogout }: AppProps) {
       <div className="border-b border-gray-200 p-6">
         <div className="flex items-baseline justify-between">
           <h1 className="text-2xl font-light">Data Room</h1>
-          <div className="flex items-center gap-4 text-sm font-light text-gray-600">
+          <div className="flex items-center gap-3 text-sm font-light text-gray-600">
+            {isAdmin && (
+              <>
+                <button
+                  onClick={handleToggleEditMode}
+                  className="text-gray-700 hover:text-black no-underline border border-black rounded-lg px-3 py-1"
+                  title={editMode ? 'Switch to view mode' : 'Switch to edit mode'}
+                >
+                  {editMode ? 'View Mode' : 'Edit Mode'}
+                </button>
+                {/* Save button removed to avoid duplication with Save Draft */}
+                {editMode && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleUndo}
+                      disabled={undoStack.length === 0}
+                      className="text-gray-700 border border-black rounded-lg px-2 py-1 disabled:opacity-60"
+                      title="Undo"
+                    >
+                      Undo
+                    </button>
+                    <button
+                      onClick={handleRedo}
+                      disabled={redoStack.length === 0}
+                      className="text-gray-700 border border-black rounded-lg px-2 py-1 disabled:opacity-60"
+                      title="Redo"
+                    >
+                      Redo
+                    </button>
+                  </div>
+                )}
+                {isAdmin && (
+                  <div className="flex items-center gap-2">
+                    <select
+                      className="border border-black rounded-lg px-2 py-1 text-sm"
+                      value={currentVersion ?? ''}
+                      onChange={(e) => {
+                        const v = e.target.value ? Number(e.target.value) : null;
+                        if (v != null) void loadRevision(v);
+                      }}
+                    >
+                      <option value="">Select revision…</option>
+                      {revisions.map((r) => (
+                        <option key={`${r.version}.${r.minor ?? 0}`} value={r.version}>
+                          v{r.version}{r.minor ? `.${r.minor}` : ''} ({r.status})
+                        </option>
+                      ))}
+                    </select>
+                    {editMode && (
+                      <>
+                        <button
+                          onClick={() => void saveDraftRevision()}
+                          disabled={!hasUnsavedChanges}
+                          className="text-gray-700 border border-black rounded-lg px-2 py-1 disabled:opacity-60"
+                          title="Save Draft"
+                        >
+                          Save Draft
+                        </button>
+                        <button
+                          onClick={() => void publishRevision()}
+                          className="text-white bg-black rounded-lg px-2 py-1"
+                          title="Publish current revision"
+                        >
+                          Publish
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+                {saveMessage && <span className="text-gray-700 ml-1">{saveMessage}</span>}
+              </>
+            )}
             {onLogout && (
               <button
                 onClick={onLogout}
@@ -485,31 +658,79 @@ function App({ onLogout }: AppProps) {
       {/* Content Area */}
       <div className="p-8">
         <div className="max-w-6xl mx-auto">
+          {isAdmin && editMode && (
+            <div className="mb-4">
+              <button
+                onClick={addCategory}
+                className="text-sm px-3 py-1 border border-black rounded-lg hover:bg-gray-50"
+              >
+                Add Category
+              </button>
+            </div>
+          )}
           {/* Category Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {data.map((category) => (
+            {data.map((category, ci, cats) => (
               <div
-                key={category.title}
+                key={ci}
                 onClick={() => setSelectedCategory(category.title)}
                 className="bg-white border-2 border-black rounded-2xl p-6 hover:bg-gray-50 transition-all cursor-pointer"
               >
-                <h3 className="text-xl font-light text-black">
-                  {category.title}
-                </h3>
+                {isAdmin && editMode && (
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); moveCategory(ci, Math.max(0, ci - 1)); }}
+                        disabled={ci === 0}
+                        className="text-xs px-2 py-1 border border-black rounded disabled:opacity-50"
+                        title="Move up"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); moveCategory(ci, Math.min(cats.length - 1, ci + 1)); }}
+                        disabled={ci === cats.length - 1}
+                        className="text-xs px-2 py-1 border border-black rounded disabled:opacity-50"
+                        title="Move down"
+                      >
+                        ↓
+                      </button>
+            </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeCategory(category.title);
+                      }}
+                      className="text-xs px-2 py-1 border border-black rounded hover:bg-gray-50"
+                      title="Remove category"
+                    >
+                      Remove Category
+                    </button>
+            </div>
+                )}
+                {isAdmin && editMode ? (
+                  <input
+                    className="w-full border border-black rounded-lg p-2 text-black text-xl font-light"
+                    value={category.title}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setUndoStack((s) => [...s, clone(data)]);
+                      setRedoStack([]);
+                      setData((prev) =>
+                        prev.map((c, idx) => (idx === ci ? { ...c, title: next } : c))
+                      );
+                      if (selectedCategory === category.title) {
+                        setSelectedCategory(next);
+                      }
+                      setHasUnsavedChanges(true);
+                    }}
+                  />
+                ) : (
+                  <h3 className="text-xl font-light text-black">{category.title}</h3>
+                )}
               </div>
             ))}
-            <div
-              onClick={() => setShowUseCases(true)}
-              className="bg-white border-2 border-black rounded-2xl p-6 hover:bg-gray-50 transition-all cursor-pointer"
-            >
-              <h3 className="text-xl font-light text-black">Use Cases</h3>
-            </div>
-            <div
-              onClick={() => setShowRoadmap(true)}
-              className="bg-white border-2 border-black rounded-2xl p-6 hover:bg-gray-50 transition-all cursor-pointer"
-            >
-              <h3 className="text-xl font-light text-black">Roadmap</h3>
-            </div>
           </div>
         </div>
       </div>
@@ -518,426 +739,415 @@ function App({ onLogout }: AppProps) {
       {selectedCategory && (
         <div 
           className="fixed inset-0 bg-black/20 flex items-center justify-center p-4 z-50"
-          onClick={closeCategoryModal}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedCategory(null);
+          }}
         >
           <div 
             className="bg-white border border-black rounded-2xl p-6 max-w-6xl w-full max-h-[90vh] overflow-y-auto no-scrollbar"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between mb-6">
-              <h2 className="text-2xl font-light text-black">{selectedCategory}</h2>
+              {editMode ? (
               <div className="flex items-center gap-2">
-                {selectedCategory === 'Growth' && (
+                  <input
+                    className="text-2xl font-light text-black border border-black rounded-lg px-3 py-1"
+                    value={(data.find((c) => c.title === selectedCategory)?.header) || selectedCategory}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setUndoStack((s) => [...s, clone(data)]);
+                      setRedoStack([]);
+                      setData((prev) =>
+                        prev.map((c) => (c.title === selectedCategory ? { ...c, header: next } : c))
+                      );
+                      setHasUnsavedChanges(true);
+                    }}
+                  />
+                  <input
+                    className="text-sm border border-black rounded-lg px-2 py-1"
+                    placeholder="Header link (https:// or image src)"
+                    value={(data.find((c) => c.title === selectedCategory)?.headerLink?.href) || ''}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setUndoStack((s) => [...s, clone(data)]);
+                      setRedoStack([]);
+                      setData((prev) =>
+                        prev.map((c) => (c.title === selectedCategory ? { ...c, headerLink: { type: next.startsWith('http') ? 'url' : 'image', href: next, imageSrc: next } } : c))
+                      );
+                      setHasUnsavedChanges(true);
+                    }}
+                  />
+                </div>
+              ) : (
+                (() => {
+                  const cat = data.find((c) => c.title === selectedCategory);
+                  const text = cat?.header || selectedCategory;
+                  const link = cat?.headerLink;
+                  if (link?.type === 'url' && link.href) {
+                    return (
+                      <a href={link.href} target="_blank" rel="noopener noreferrer" className="text-2xl font-light text-black underline">
+                        {text}
+                      </a>
+                    );
+                  }
+                  if (link?.type === 'image' && link.imageSrc) {
+                    return (
+                      <span className="text-2xl font-light text-black underline cursor-pointer" onClick={() => setImageModal(link.imageSrc!)}>{text}</span>
+                    );
+                  }
+                  return <h2 className="text-2xl font-light text-black">{text}</h2>;
+                })()
+              )}
+              <div className="flex items-center gap-2">
+                {isAdmin && editMode && (
                   <button
-                    onClick={() => setSelectedDeepDive({ type: 'dataSources' })}
+                    onClick={() => addMetric(selectedCategory)}
                     className="text-sm px-3 py-1 border border-black rounded-lg hover:bg-gray-50"
                   >
-                    DB Migrations
+                    Add Tile
                   </button>
                 )}
               </div>
             </div>
             
             <div className="space-y-6">
-              {data.find(c => c.title === selectedCategory)?.metrics.map((metric) => (
-                <div 
-                  key={metric.title} 
-                  className="bg-white border border-black rounded-xl p-6"
-                >
+            {data
+              .find((c) => c.title === selectedCategory)
+              ?.metrics.map((metric, mi, arr) => (
+                  <div key={mi} className="bg-white border border-black rounded-xl p-6">
                   <div className="space-y-4">
-                    {/* Metric Title */}
-                    <div className="mb-4">
-                      <h3 
-                        className="text-lg font-bold text-black cursor-pointer hover:text-gray-700 transition-colors"
-                        onClick={() => {
-                          if (metric.title.toLowerCase().startsWith('retention averages')) {
-                            setShowRetentionDefinition(true);
-                          } else if (metric.title === 'North Star Metric') {
-                            setShowNorthStar(true);
-                          } else {
-                            handleDefinitionClick(metric.title);
-                          }
-                        }}
-                      >
-                        {metric.title}
-                      </h3>
+                      {isAdmin && editMode && (
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => moveMetric(selectedCategory, mi, Math.max(0, mi - 1))}
+                          disabled={mi === 0}
+                          className="text-xs px-2 py-1 border border-black rounded disabled:opacity-50"
+                          title="Move up"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          onClick={() => moveMetric(selectedCategory, mi, Math.min(arr.length - 1, mi + 1))}
+                          disabled={mi === arr.length - 1}
+                          className="text-xs px-2 py-1 border border-black rounded disabled:opacity-50"
+                          title="Move down"
+                        >
+                          ↓
+                        </button>
                     </div>
-                    
-                    {/* Main Value */}
-                    <div className="space-y-2">
-                      <div className="text-2xl font-bold text-black">
-                        {metric.value}
-                      </div>
-                      {(metric.description || metric.ctaHref) && (
-                        <div className="text-sm text-gray-600">
-                        {metric.ctaHref ? (
-                          metric.ctaHref === 'northstar' ? (
                             <button
-                              onClick={(e: React.MouseEvent) => { e.stopPropagation(); setShowNorthStar(true); }}
-                              className="text-gray-900 hover:text-gray-700 font-medium underline"
+                            onClick={() => removeMetric(selectedCategory, metric.title)}
+                            className="text-xs px-2 py-1 border border-black rounded hover:bg-gray-50"
+                            title="Remove tile"
                             >
-                              {metric.ctaLabel || 'View Definition'}
+                            Remove Tile
                             </button>
-                          ) : (
-                            <a
-                              href={metric.ctaHref}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="no-underline"
-                            >
-                              {metric.ctaLabel || 'View Demo'}
-                            </a>
-                          )
-                        ) : (
-                          metric.description
-                        )}
                         </div>
                       )}
+                    {/* Metric Title */}
+                      <div className="mb-2">
+                        {editMode ? (
+                          <div className="relative">
+                            <input
+                              className="w-full border border-black rounded-lg p-2 text-black pr-20"
+                              value={metric.title}
+                              onChange={(e) => updateMetricField(selectedCategory, metric.title, 'title', e.target.value)}
+                            />
+                            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                              <label className="text-xs px-2 py-1 border border-black rounded cursor-pointer whitespace-nowrap">Upload
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const f = e.target.files?.[0];
+                                    if (f) handleImageUpload(f, (href) => updateMetricLink(selectedCategory, metric.title, href));
+                                  }}
+                                />
+                              </label>
+                              <button
+                                className="text-xs px-2 py-1 border border-black rounded"
+                                onClick={() => {
+                                  const href = prompt('Enter URL');
+                                  if (href) updateMetricLink(selectedCategory, metric.title, href);
+                                }}
+                              >
+                                Link
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          (() => {
+                            if (metric.link?.type === 'url' && metric.link.href) {
+                              return <a href={metric.link.href} target="_blank" rel="noopener noreferrer" className="text-lg font-bold text-black underline">{metric.title}</a>;
+                            }
+                            if (metric.link?.type === 'image' && metric.link.imageSrc) {
+                              return <span className="text-lg font-bold text-black underline cursor-pointer" onClick={() => setImageModal(metric.link!.imageSrc!)}>{metric.title}</span>;
+                            }
+                            return <h3 className="text-lg font-bold text-black">{metric.title}</h3>;
+                          })()
+                        )}
+                        </div>
+                    
+                    {/* Main Value */}
+                      <div className="space-y-1">
+                        {editMode ? (
+                          <input
+                            className="w-full border border-black rounded-lg p-2 text-black text-2xl font-bold"
+                            value={metric.value}
+                            onChange={(e) => updateMetricField(selectedCategory, metric.title, 'value', e.target.value)}
+                          />
+                        ) : (
+                          <div className="text-2xl font-bold text-black">{metric.value}</div>
+                        )}
+                        {editMode ? (
+                          <div className="relative">
+                            <input
+                              className="w-full border border-black rounded-lg p-2 text-black pr-20"
+                              value={metric.description || ''}
+                              placeholder="Description"
+                              onChange={(e) => updateMetricField(selectedCategory, metric.title, 'description', e.target.value)}
+                            />
+                            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                              <label className="text-xxs px-2 py-1 border border-black rounded cursor-pointer">Upload
+                                <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f, (href) => updateMetricField(selectedCategory, metric.title, 'descriptionLink', JSON.stringify({ type: 'image', href } as any))); }} />
+                              </label>
+                              <button className="text-xxs px-2 py-1 border border-black rounded" onClick={() => { const href = prompt('Enter URL'); if (href) updateMetricField(selectedCategory, metric.title, 'descriptionLink', JSON.stringify({ type: 'url', href } as any)); }}>Link</button>
+                            </div>
+                          </div>
+                        ) : (
+                          metric.description && (
+                            (() => {
+                              const dl = metric.descriptionLink as any;
+                              if (dl) {
+                                try {
+                                  const parsed = typeof dl === 'string' ? JSON.parse(dl) : dl;
+                                  if (parsed.type === 'url') return <a href={parsed.href} target="_blank" rel="noopener noreferrer" className="text-sm text-gray-600 underline">{metric.description}</a>;
+                                  if (parsed.type === 'image') return <span className="text-sm text-gray-600 underline cursor-pointer" onClick={() => setImageModal(parsed.href)}>{metric.description}</span>;
+                                } catch {}
+                              }
+                              return <div className="text-sm text-gray-600">{metric.description}</div>;
+                            })()
+                          )
+                        )}
+                        {editMode ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              className="flex-1 border border-black rounded-lg p-2 text-black text-sm"
+                              value={metric.ctaText || ''}
+                              placeholder="CTA text (e.g., View Graph)"
+                              onChange={(e) => updateMetricField(selectedCategory, metric.title, 'ctaText', e.target.value)}
+                            />
+                            <input
+                              className="w-64 border border-black rounded-lg p-2 text-black text-sm"
+                              value={metric.ctaLink?.href || ''}
+                              placeholder="CTA link (https:// or image src)"
+                              onChange={(e) => {
+                                const href = e.target.value;
+                                setData((prev) => prev.map((c) => c.title === selectedCategory ? {
+                                  ...c,
+                                  metrics: c.metrics.map((m) => m.title === metric.title ? { ...m, ctaLink: href ? { type: href.startsWith('http') ? 'url' : 'image', href, imageSrc: href } : undefined } : m)
+                                } : c));
+                                setHasUnsavedChanges(true);
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          metric.ctaText && metric.ctaLink && (
+                            metric.ctaLink.type === 'url' ? (
+                              <a href={metric.ctaLink.href} target="_blank" rel="noopener noreferrer" className="text-base underline">{metric.ctaText}</a>
+                            ) : metric.ctaLink.imageSrc ? (
+                              <span className="text-base underline cursor-pointer" onClick={() => setImageModal(metric.ctaLink!.imageSrc!)}>{metric.ctaText}</span>
+                            ) : null
+                          )
+                        )}
                     </div>
 
                     {/* Insight */}
-                    <div className="space-y-2">
-                      <div className="text-gray-700 leading-relaxed">
-                        {metric.insight}
-                      </div>
-                    </div>
+                      {editMode ? (
+                        <div className="relative">
+                          <textarea
+                            className="w-full border border-black rounded-lg p-2 text-black pr-20"
+                            value={metric.insight || ''}
+                            placeholder="Insight"
+                            onChange={(e) => updateMetricField(selectedCategory, metric.title, 'insight', e.target.value)}
+                          />
+                          <div className="absolute right-2 top-2 flex items-center gap-1">
+                            <label className="text-xxs px-2 py-1 border border-black rounded cursor-pointer">Upload
+                              <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f, (href) => updateMetricField(selectedCategory, metric.title, 'insightLink', JSON.stringify({ type: 'image', href } as any))); }} />
+                            </label>
+                            <button className="text-xxs px-2 py-1 border border-black rounded" onClick={() => { const href = prompt('Enter URL'); if (href) updateMetricField(selectedCategory, metric.title, 'insightLink', JSON.stringify({ type: 'url', href } as any)); }}>Link</button>
+                          </div>
+                        </div>
+                      ) : (
+                        metric.insight && (
+                          (() => {
+                            const il = metric.insightLink as any;
+                            if (il) {
+                              try {
+                                const parsed = typeof il === 'string' ? JSON.parse(il) : il;
+                                if (parsed.type === 'url') return <a href={parsed.href} target="_blank" rel="noopener noreferrer" className="text-gray-700 leading-relaxed underline">{metric.insight}</a>;
+                                if (parsed.type === 'image') return <span className="text-gray-700 leading-relaxed underline cursor-pointer" onClick={() => setImageModal(parsed.href)}>{metric.insight}</span>;
+                              } catch {}
+                            }
+                            return <div className="text-gray-700 leading-relaxed">{metric.insight}</div>;
+                          })()
+                        )
+                      )}
 
                     {/* Expanded Data */}
                     {metric.expandedData && (
                       <div className="space-y-3">
                         <button
-                          onClick={() => toggleSubData(metric.title)}
+                            onClick={() => toggleSubData(`${selectedCategory}-${mi}`)}
                           className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors"
                         >
-                          <span className={`transform transition-transform ${expandedSubData[metric.title] ? 'rotate-180' : ''}`}>
+                            <span className={`transform transition-transform ${expandedSubData[`${selectedCategory}-${mi}`] ? 'rotate-180' : ''}`}>
                             ▼
                           </span>
                         </button>
-                        
-                        {expandedSubData[metric.title] && (
+                          {expandedSubData[`${selectedCategory}-${mi}`] && (
                           <div>
+                              {editMode && (
+                                <div className="mb-3">
+                                  <button
+                                    onClick={() => addExpandedItem(selectedCategory, metric.title)}
+                                    className="text-sm px-3 py-1 border border-black rounded-lg hover:bg-gray-50"
+                                  >
+                                    Add Subtile
+                                  </button>
+                                </div>
+                              )}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                              {metric.expandedData.map((item, idx) => (
+                              {metric.expandedData.map((item, idx, itemsArr) => (
                                 <div key={idx} className="bg-gray-25 border border-black rounded-lg p-4">
                                   <div className="space-y-2">
-                                    <div className="flex items-center justify-between">
-                                      <div className="text-sm font-bold text-black">{item.label}</div>
-                                    </div>
-                                    <div className="text-lg font-bold text-black">
-                                      {item.value}
-                                    </div>
-                                    {item.description && (
-                                      <div className="text-sm text-gray-600">
-                                        {item.description}
-                                      </div>
+                                      <div className="flex items-center justify-between">
+                                        {editMode ? (
+                                          <div className="relative">
+                                            <input
+                                              className="w-full border border-black rounded-lg p-2 text-black pr-20"
+                                              value={item.label}
+                                              onChange={(e) => updateExpandedItem(selectedCategory, metric.title, idx, 'label', e.target.value)}
+                                            />
+                                            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                              <label className="text-xs px-2 py-1 border border-black rounded cursor-pointer whitespace-nowrap">Upload
+                                                <input
+                                                  type="file"
+                                                  accept="image/*"
+                                                  className="hidden"
+                                                  onChange={(e) => {
+                                                    const f = e.target.files?.[0];
+                                                    if (f) handleImageUpload(f, (href) => updateExpandedLink(selectedCategory, metric.title, idx, href));
+                                                  }}
+                                                />
+                                              </label>
+                                              <button
+                                                className="text-xs px-2 py-1 border border-black rounded"
+                                                onClick={() => {
+                                                  const href = prompt('Enter URL');
+                                                  if (href) updateExpandedLink(selectedCategory, metric.title, idx, href);
+                                                }}
+                                              >
+                                                Link
+                                              </button>
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          (() => {
+                                            if (item.link?.type === 'url' && item.link.href) {
+                                              return <a href={item.link.href} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-black underline">{item.label}</a>;
+                                            }
+                                            if (item.link?.type === 'image' && item.link.imageSrc) {
+                                              return <span className="text-sm font-bold text-black underline cursor-pointer" onClick={() => setImageModal(item.link!.imageSrc!)}>{item.label}</span>;
+                                            }
+                                            return <div className="text-sm font-bold text-black">{item.label}</div>;
+                                          })()
+                                        )}
+                  </div>
+                                      {editMode ? (
+                                        <input
+                                          className="w-full border border-black rounded-lg p-2 text-black text-lg font-bold"
+                                          value={item.value}
+                                          onChange={(e) => updateExpandedItem(selectedCategory, metric.title, idx, 'value', e.target.value)}
+                                        />
+                                      ) : (
+                                        <div className="text-lg font-bold text-black">{item.value}</div>
+                                      )}
+                                      {editMode && (
+                                        <div className="flex items-center gap-2 mt-2">
+                                          <button
+                                            onClick={() => moveExpandedItem(selectedCategory, metric.title, idx, Math.max(0, idx - 1))}
+                                            disabled={idx === 0}
+                                            className="text-xs px-2 py-1 border border-black rounded disabled:opacity-50"
+                                            title="Move up"
+                                          >
+                                            ↑
+                                          </button>
+                                          <button
+                                            onClick={() => moveExpandedItem(selectedCategory, metric.title, idx, Math.min(itemsArr.length - 1, idx + 1))}
+                                            disabled={idx === itemsArr.length - 1}
+                                            className="text-xs px-2 py-1 border border-black rounded disabled:opacity-50"
+                                            title="Move down"
+                                          >
+                                            ↓
+                                          </button>
+                                          <button
+                                            onClick={() => removeExpandedItem(selectedCategory, metric.title, idx)}
+                                            className="text-xs px-2 py-1 border border-black rounded hover:bg-gray-50"
+                                            title="Remove subtile"
+                                          >
+                                            Remove
+                                          </button>
+                                        </div>
+                                      )}
+                                      {editMode ? (
+                                        <input
+                                          className="w-full border border-black rounded-lg p-2 text-black"
+                                          value={item.description || ''}
+                                          placeholder="Description"
+                                          onChange={(e) => updateExpandedItem(selectedCategory, metric.title, idx, 'description', e.target.value)}
+                                        />
+                                      ) : (
+                                        item.description && <div className="text-sm text-gray-600">{item.description}</div>
                                     )}
-                                  </div>
-                                </div>
+                  </div>
+                  </div>
                               ))}
-                            </div>
-                            {selectedCategory === 'Retention' && metric.title.startsWith('Retention Averages') && (
-                              <div className="mt-3 text-xs text-gray-600">
-                                <em>
-                                  Note: Calculations for Retention were based on recent data on read receipts (more info <a href="https://www.notion.so/How-we-track-retention-27e83195d81b80259494fcf3953049a3#27e83195d81b80259494fcf3953049a3" target="_blank" rel="noopener noreferrer" className="underline">here</a>).
-                                </em>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {(metric.title === 'Recent Match Acceptance Trends' || metric.title === 'First Match Acceptance') && (
-                      <div className="mt-3">
-                        <button
-                          onClick={() => setSelectedDeepDive({ type: 'matchLoop', timeframe: matchLoopDeepDive[0].label })}
-                          className="text-sm px-3 py-1 border border-black rounded-lg hover:bg-gray-50"
-                        >
-                          Deep Dive: First Match Dynamics
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
       )}
 
-      {showUseCases && (
-        <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50 p-4" onClick={() => setShowUseCases(false)}>
-          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto no-scrollbar p-6 relative" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => setShowUseCases(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors">✕</button>
-            <h3 className="text-2xl font-semibold text-gray-900 mb-6">Use Cases</h3>
-            <div className="space-y-4">
-              <div className="border border-gray-200 rounded-lg p-5">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-semibold text-gray-900">Use Case 1</h4>
-                  <a href="https://tasteful-vicuna-7b3.notion.site/ebd/27f93c5690078042aa0fe116390661f8" target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors">View</a>
-                </div>
-              </div>
-              <div className="border border-gray-200 rounded-lg p-5">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-semibold text-gray-900">Use Case 2</h4>
-                  <a href="https://tasteful-vicuna-7b3.notion.site/ebd/27f93c569007801cb538fd3cf1ae1030" target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors">View</a>
-                </div>
-              </div>
-              <div className="border border-gray-200 rounded-lg p-5">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-semibold text-gray-900">Use Case 3</h4>
-                  <a href="https://tasteful-vicuna-7b3.notion.site/ebd/27f93c569007801e8a42fcc2a56f19db" target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors">View</a>
-                </div>
-              </div>
+      {imageModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[100000]" onClick={() => setImageModal(null)}>
+          <div className="bg-white rounded-xl p-2 max-w-6xl w-full max-h-[95vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-end mb-2">
+              <button className="text-sm px-3 py-1 border border-black rounded-lg hover:bg-gray-50" onClick={() => setImageModal(null)}>Close</button>
             </div>
+            <img src={imageModal} alt="Preview" className="w-full h-auto max-h-[90vh] object-contain" />
           </div>
         </div>
       )}
-
-      {showRoadmap && (
-        <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50 p-4" onClick={() => setShowRoadmap(false)}>
-          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto no-scrollbar p-6 relative" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => setShowRoadmap(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors">✕</button>
-            <h3 className="text-2xl font-semibold text-gray-900 mb-6">Product Roadmap</h3>
-            <p className="text-gray-600 mb-6">What's next for Series</p>
-            <div className="space-y-5">
-              <div>
-                <h4 className="font-semibold text-gray-900 mb-3 text-lg">Q4 2025</h4>
-                <div className="space-y-3">
-                  <div className="border border-gray-200 rounded-lg p-5">
-                    <h5 className="font-semibold text-gray-900 mb-2">NSM/Value Add</h5>
-                    <ul className="text-sm text-gray-600 leading-relaxed space-y-1 ml-4 list-disc">
-                      <li>Seeing our NSM of 12 percent increase to 20 percent by End of Nov</li>
-                      <li>Implementing Posts widescale to standardize predictions of retention calculation merit in practice</li>
-                      <li>Fine tuning augmentation and fine data handling</li>
-                      <li>Running weekly test cohorts (Series Rush) to address ICP product wants</li>
-                    </ul>
-                  </div>
-                  <div className="border border-gray-200 rounded-lg p-5">
-                    <h5 className="font-semibold text-gray-900 mb-2">Maintain Retention (&gt;90 percent)</h5>
-                    <ul className="text-sm text-gray-600 leading-relaxed space-y-1 ml-4 list-disc">
-                      <li>v3.5 Product Trailer and Kick off Series UGC/College tour</li>
-                      <li>Use both as usage pegs as we go into quarter of tech focused hibernation</li>
-                      <li>Investing in infra like farm of Linq numbers</li>
-                    </ul>
-                  </div>
-                  <div className="border border-gray-200 rounded-lg p-5">
-                    <h5 className="font-semibold text-gray-900 mb-2">Similarity Graphs/UI</h5>
-                    <ul className="text-sm text-gray-600 leading-relaxed space-y-1 ml-4 list-disc">
-                      <li>UI/UX changes to web landing, and prompting tonality</li>
-                      <li>Big focus: Graph UI and Post prompting and verbage</li>
-                    </ul>
-                  </div>
-                  <div className="border border-gray-200 rounded-lg p-5">
-                    <h5 className="font-semibold text-gray-900 mb-2">Analytics Dashboard</h5>
-                    <p className="text-sm text-gray-600 leading-relaxed">Internal insights network growth, connection quality, and engagement patterns</p>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <h4 className="font-semibold text-gray-900 mb-3 text-lg">Q1 2026</h4>
-                <div className="space-y-3">
-                  <div className="border border-gray-200 rounded-lg p-5">
-                    <h5 className="font-semibold text-gray-900 mb-2">Series Groups</h5>
-                    <p className="text-sm text-gray-600 leading-relaxed">Enable small group introductions for shared interests and activities. Actually get put into multi member group chats, for people needs that don't fit 1 to 1 solutions</p>
-                  </div>
-                  <div className="border border-gray-200 rounded-lg p-5">
-                    <h5 className="font-semibold text-gray-900 mb-2">Enterprise Rollout</h5>
-                    <p className="text-sm text-gray-600 leading-relaxed">Warm intro automation at scale. See B2B</p>
-                  </div>
-                  <div className="border border-gray-200 rounded-lg p-5">
-                    <h5 className="font-semibold text-gray-900 mb-2">Perms Scour</h5>
-                    <p className="text-sm text-gray-600 leading-relaxed">Apply and start process to access highly sensitive perms needed for highly contextualized user experiences fed by dense data</p>
-                  </div>
-                  <div className="border border-gray-200 rounded-lg p-5">
-                    <h5 className="font-semibold text-gray-900 mb-2">Feature Review</h5>
-                    <ul className="text-sm text-gray-600 leading-relaxed space-y-1 ml-4 list-disc">
-                      <li>Large case study of UI/UX for 2025. A quarterly review of product health</li>
-                      <li>UI/UX changes to web landing, and prompting tonality</li>
-                      <li>Big focus: Graph UI and Post verbage</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <h4 className="font-semibold text-gray-900 mb-3 text-lg">Q2 2026</h4>
-                <div className="space-y-3">
-                  <div className="border border-gray-200 rounded-lg p-5">
-                    <p className="text-sm text-gray-600 leading-relaxed">Transition to go-to-market strategy, planning for user growth from 100k to 1M within the calendar year. Focus on scaling infrastructure, optimizing user acquisition channels, and preparing systems for exponential growth.</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       )}
-
-      {showNorthStar && (
-        <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50 p-4" onClick={() => setShowNorthStar(false)}>
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 relative" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => setShowNorthStar(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors">✕</button>
-            <h3 className="text-2xl font-semibold text-gray-900 mb-6">North Star Metric</h3>
-            <p className="text-sm text-gray-500 italic leading-relaxed">Signal for product health. Bar must naturally raise over time. Analogous to early Facebook 7 Friend Avg.</p>
-            <div className="bg-gray-50 rounded-lg p-6 text-center mt-6">
-              <div className="text-5xl font-bold text-gray-900 mb-2">12%</div>
-              <div className="text-sm text-gray-600">Current NSM</div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showRetentionDefinition && (
-        <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50 p-4" onClick={() => setShowRetentionDefinition(false)}>
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 relative" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => setShowRetentionDefinition(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors">✕</button>
-            <div className="mb-6">
-              <h3 className="text-gray-900 text-sm font-medium mb-2">How is retention calculated?</h3>
-              <p className="text-xs text-gray-600">Retention is calculated by the recurrence of new AI friend texts being opened.</p>
-              <p className="text-xs text-gray-500 mt-2">last updated: 08/01</p>
-            </div>
-            <button onClick={() => setShowRetentionGraph(true)} className="w-full bg-black text-white py-3 px-4 rounded-[40px] hover:bg-gray-800 transition-colors font-medium text-sm">View Graph</button>
-          </div>
-        </div>
-      )}
-
-      {showRetentionGraph && (
-        <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-50 p-4" onClick={() => setShowRetentionGraph(false)}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto no-scrollbar p-8 relative" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-xl font-semibold text-gray-900 mb-1">Beta Launch – v3.5 Beta Launch</h3>
-            <p className="text-sm text-gray-600 mb-4">{selectedRetentionDimension === 'D30' ? 'July 11 – September 1, 2025 | D30 Life Cycle | Flat method' : 'Retention Curve | Rolling method'}</p>
-            <div className="flex flex-wrap gap-2 mb-4">
+                      {isAdmin && editMode && (
+                        <div className="pt-2 flex justify-end">
               <button
-                onClick={() => setSelectedRetentionDimension('D7')}
-                className={`text-sm px-3 py-1 border border-black rounded-lg hover:bg-gray-50 ${selectedRetentionDimension === 'D7' ? 'bg-gray-100' : ''}`}
-              >
-                Retention Curve
+                            onClick={() => void saveDraftRevision()}
+                            disabled={isSaving || !hasUnsavedChanges}
+                            className="text-sm px-3 py-1 border border-black rounded-lg hover:bg-gray-50 disabled:opacity-60"
+                            title="Save Draft"
+                          >
+                            Save Draft
               </button>
-              <button
-                onClick={() => setSelectedRetentionDimension('D30')}
-                className={`text-sm px-3 py-1 border border-black rounded-lg hover:bg-gray-50 ${selectedRetentionDimension === 'D30' ? 'bg-gray-100' : ''}`}
-              >
-                D30 Life Cycle
-              </button>
-            </div>
-            <div className={`${selectedRetentionDimension === 'D30' ? 'mb-6' : 'bg-gray-50 rounded-lg p-4 mb-6'}`}>
-              <img src={selectedRetentionDimension === 'D30' ? '/retention_graph_2.jpeg' : '/retention_graph.png'} alt="Retention Graph" className={`w-full h-auto max-h-[60vh] object-contain ${selectedRetentionDimension === 'D30' ? '' : 'rounded'} mx-auto`} />
-            </div>
-            <div className="text-xs text-gray-500">{selectedRetentionDimension === 'D30' ? '' : 'Retention Curve'}</div>
-          </div>
         </div>
       )}
-      {/* Definition Modal */}
-      {selectedDefinition && (
-        <div 
-          className="fixed inset-0 bg-black/10 flex items-center justify-center p-4 z-[9999]"
-          onClick={closeDefinitionModal}
-        >
-          <div 
-            className="bg-white border border-black rounded-lg p-4 max-w-sm w-full shadow-sm"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="space-y-3">
-              <h3 className="text-base font-bold text-black">{selectedDefinition.term}</h3>
-              <p className="text-sm text-gray-700 leading-relaxed">
-                {selectedDefinition.definition}
-              </p>
             </div>
           </div>
-        </div>
-      )}
-
-      {selectedDeepDive && (
-        <div
-          className="fixed inset-0 bg-black/20 flex items-center justify-center p-4 z-[99999]"
-          onClick={() => setSelectedDeepDive(null)}
-        >
-          <div
-            className="bg-white border border-black rounded-2xl p-6 w-full max-w-5xl max-h-[90vh] overflow-y-auto no-scrollbar"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between mb-4">
-              <h3 className="text-xl font-light text-black">
-                {selectedDeepDive.type === 'matchLoop' ? 'Match Loop Deep Dive' : 'DB Migrations'}
-              </h3>
-              <button
-                onClick={() => setSelectedDeepDive(null)}
-                className="text-sm px-3 py-1 border border-black rounded-lg hover:bg-gray-50"
-              >
-                Close
-              </button>
-            </div>
-
-            {selectedDeepDive.type === 'matchLoop' && (
-              <div className="space-y-4">
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {matchLoopDeepDive.map((frame) => (
-                    <button
-                      key={frame.label}
-                      onClick={() => setSelectedDeepDive({ type: 'matchLoop', timeframe: frame.label })}
-                      className={`text-sm px-3 py-1 border border-black rounded-lg hover:bg-gray-50 ${selectedDeepDive.timeframe === frame.label ? 'bg-gray-100' : ''}`}
-                    >
-                      {frame.label}
-                    </button>
                   ))}
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {filterByConfidence(
-                    (matchLoopDeepDive.find((f) => f.label === selectedDeepDive.timeframe) || matchLoopDeepDive[0]).stats
-                  ).map((s, idx) => (
-                    <div key={idx} className="bg-white border border-black rounded-lg p-4">
-                      <div className="text-sm font-bold text-black">{s.label}</div>
-                      <div className="text-lg font-bold text-black mt-1">{typeof s.value === 'number' ? s.value.toLocaleString() : s.value}</div>
-                      {s.note && <div className="text-xs text-gray-600 mt-1">{s.note}</div>}
                     </div>
-                  ))}
-                </div>
-                <div className="text-xs text-gray-500 mt-2">Hiding items with confidence &lt; {(CONFIDENCE_THRESHOLD * 100).toFixed(0)}%.</div>
-              </div>
-            )}
-
-            {selectedDeepDive.type === 'dataSources' && (
-              <div className="space-y-6">
-                <div>
-                  <h4 className="text-sm font-bold text-black mb-2">Users by Source</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {filterByConfidence(dataSourcesBreakdown.users).map((u, idx) => (
-                      <div key={idx} className="bg-white border border-black rounded-lg p-4">
-                        <div className="text-sm font-bold text-black">{u.label}</div>
-                        <div className="text-lg font-bold text-black mt-1">{typeof u.value === 'number' ? u.value.toLocaleString() : u.value}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-black mb-2">Messages by Source</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {filterByConfidence(dataSourcesBreakdown.messages).map((m, idx) => (
-                      <div key={idx} className="bg-white border border-black rounded-lg p-4">
-                        <div className="text-sm font-bold text-black">{m.label}</div>
-                        <div className="text-lg font-bold text-black mt-1">{typeof m.value === 'number' ? m.value.toLocaleString() : m.value}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="bg-white border border-black rounded-lg p-4">
-                    <div className="text-sm font-bold text-black">Total Users</div>
-                    <div className="text-lg font-bold text-black mt-1">{dataSourcesBreakdown.totals.usersTotal.toLocaleString()}</div>
-                  </div>
-                  <div className="bg-white border border-black rounded-lg p-4">
-                    <div className="text-sm font-bold text-black">Total Messages</div>
-                    <div className="text-lg font-bold text-black mt-1">{dataSourcesBreakdown.totals.messagesTotal.toLocaleString()}</div>
-                  </div>
-                  <div className="bg-white border border-black rounded-lg p-4">
-                    <div className="text-sm font-bold text-black">Current in Supabase (Users)</div>
-                    <div className="text-lg font-bold text-black mt-1">{(dataSourcesBreakdown.totals.supabaseUsersCurrent || 0).toLocaleString()}</div>
-                  </div>
-                </div>
-                <div className="text-xs text-gray-500 mt-2">Hiding items with confidence &lt; {(CONFIDENCE_THRESHOLD * 100).toFixed(0)}%.</div>
-              </div>
-            )}
-          </div>
         </div>
       )}
     </div>

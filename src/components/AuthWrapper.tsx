@@ -3,10 +3,18 @@ import LoginForm from './LoginForm';
 import App from '../App';
 
 const CORRECT_PASSWORD = 'ConsumerSocial@2025';
+const ADMIN_PASSWORD = 'BigPod@2025';
 const AUTH_STORAGE_KEY = 'series_metrics_auth';
+
+interface StoredAuth {
+  authenticated: boolean;
+  isAdmin?: boolean;
+  timestamp: number;
+}
 
 const AuthWrapper: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [authError, setAuthError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
@@ -16,20 +24,17 @@ const AuthWrapper: React.FC = () => {
       try {
         const storedAuth = localStorage.getItem(AUTH_STORAGE_KEY);
         if (storedAuth) {
-          const authData = JSON.parse(storedAuth);
+          const authData = JSON.parse(storedAuth) as StoredAuth;
           // Check if authentication is still valid (within 24 hours)
-          const isValid = authData.timestamp && 
-                          (Date.now() - authData.timestamp) < 24 * 60 * 60 * 1000;
-          
+          const isValid = authData.timestamp && (Date.now() - authData.timestamp) < 24 * 60 * 60 * 1000;
           if (isValid && authData.authenticated) {
             setIsAuthenticated(true);
+            setIsAdmin(Boolean(authData.isAdmin));
           } else {
-            // Clean up expired authentication
             localStorage.removeItem(AUTH_STORAGE_KEY);
           }
         }
       } catch (error) {
-        // Clean up corrupted auth data
         localStorage.removeItem(AUTH_STORAGE_KEY);
         console.error('Auth check failed:', error);
       }
@@ -41,16 +46,18 @@ const AuthWrapper: React.FC = () => {
 
   const handleLogin = (password: string) => {
     setAuthError('');
-    
-    if (password === CORRECT_PASSWORD) {
+
+    const isAdminLogin = password === ADMIN_PASSWORD;
+    if (password === CORRECT_PASSWORD || isAdminLogin) {
       setIsAuthenticated(true);
-      
-      // Store authentication state with timestamp
-      const authData = {
+      setIsAdmin(isAdminLogin);
+
+      const authData: StoredAuth = {
         authenticated: true,
-        timestamp: Date.now()
+        isAdmin: isAdminLogin,
+        timestamp: Date.now(),
       };
-      
+
       try {
         localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authData));
       } catch (error) {
@@ -63,10 +70,10 @@ const AuthWrapper: React.FC = () => {
 
   const handleLogout = () => {
     setIsAuthenticated(false);
+    setIsAdmin(false);
     localStorage.removeItem(AUTH_STORAGE_KEY);
   };
 
-  // Show loading state while checking authentication
   if (isLoading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -78,16 +85,13 @@ const AuthWrapper: React.FC = () => {
     );
   }
 
-  // Show login form if not authenticated
   if (!isAuthenticated) {
     return <LoginForm onLogin={handleLogin} error={authError} />;
   }
 
-  // Show main app with logout option if authenticated
   return (
     <div>
-      {/* Main application with header logout control */}
-      <App onLogout={handleLogout} />
+      <App onLogout={handleLogout} isAdmin={isAdmin} />
     </div>
   );
 };
