@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import InlineLinkRenderer from './components/InlineLinkRenderer';
+import InlineLinkEditor from './components/InlineLinkEditor';
 
 interface AppProps {
   onLogout?: () => void;
@@ -127,7 +129,7 @@ function App({ onLogout, isAdmin = false }: AppProps) {
           // Open all dropdowns by default
           const defaults: { [key: string]: boolean } = {};
           body.data.forEach((cat: any) => {
-            cat.metrics?.forEach((m: any, idx: number) => {
+            cat.metrics?.forEach((_: any, idx: number) => {
               defaults[`${cat.title}-${idx}`] = true;
             });
           });
@@ -902,33 +904,20 @@ function App({ onLogout, isAdmin = false }: AppProps) {
                           <div className="text-2xl font-bold text-black">{metric.value}</div>
                         )}
                         {editMode ? (
-                          <div className="relative">
-                            <input
-                              className="w-full border border-black rounded-lg p-2 text-black pr-20"
-                              value={metric.description || ''}
-                              placeholder="Description"
-                              onChange={(e) => updateMetricField(selectedCategory, metric.title, 'description', e.target.value)}
-                            />
-                            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                              <label className="text-xxs px-2 py-1 border border-black rounded cursor-pointer">Upload
-                                <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f, (href) => updateMetricField(selectedCategory, metric.title, 'descriptionLink', JSON.stringify({ type: 'image', href } as any))); }} />
-                              </label>
-                              <button className="text-xxs px-2 py-1 border border-black rounded" onClick={() => { const href = prompt('Enter URL'); if (href) updateMetricField(selectedCategory, metric.title, 'descriptionLink', JSON.stringify({ type: 'url', href } as any)); }}>Link</button>
-                      </div>
-                          </div>
+                          <InlineLinkEditor
+                            value={metric.description || ''}
+                            onChange={(value) => updateMetricField(selectedCategory, metric.title, 'description', value)}
+                            placeholder="Description (use [text](url) for links)"
+                            className="text-sm"
+                            onImageUpload={handleImageUpload}
+                          />
                         ) : (
                           metric.description && (
-                            (() => {
-                              const dl = metric.descriptionLink as any;
-                              if (dl) {
-                                try {
-                                  const parsed = typeof dl === 'string' ? JSON.parse(dl) : dl;
-                                  if (parsed.type === 'url') return <a href={parsed.href} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 underline">{metric.description}</a>;
-                                  if (parsed.type === 'image') return <span className="text-sm text-blue-600 underline cursor-pointer" onClick={() => setImageModal(parsed.href)}>{metric.description}</span>;
-                                } catch {}
-                              }
-                              return <div className="text-sm text-gray-600">{metric.description}</div>;
-                            })()
+                            <InlineLinkRenderer
+                              text={metric.description}
+                              className="text-sm text-gray-600"
+                              onImageClick={setImageModal}
+                            />
                           )
                         )}
                         {editMode ? (
@@ -966,33 +955,21 @@ function App({ onLogout, isAdmin = false }: AppProps) {
 
                     {/* Insight */}
                       {editMode ? (
-                        <div className="relative">
-                          <textarea
-                            className="w-full border border-black rounded-lg p-2 text-black pr-20"
-                            value={metric.insight || ''}
-                            placeholder="Insight"
-                            onChange={(e) => updateMetricField(selectedCategory, metric.title, 'insight', e.target.value)}
-                          />
-                          <div className="absolute right-2 top-2 flex items-center gap-1">
-                            <label className="text-xxs px-2 py-1 border border-black rounded cursor-pointer">Upload
-                              <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f, (href) => updateMetricField(selectedCategory, metric.title, 'insightLink', JSON.stringify({ type: 'image', href } as any))); }} />
-                            </label>
-                            <button className="text-xxs px-2 py-1 border border-black rounded" onClick={() => { const href = prompt('Enter URL'); if (href) updateMetricField(selectedCategory, metric.title, 'insightLink', JSON.stringify({ type: 'url', href } as any)); }}>Link</button>
-                      </div>
-                    </div>
+                        <InlineLinkEditor
+                          value={metric.insight || ''}
+                          onChange={(value) => updateMetricField(selectedCategory, metric.title, 'insight', value)}
+                          placeholder="Insight (use [text](url) for links)"
+                          className="leading-relaxed"
+                          onImageUpload={handleImageUpload}
+                          isTextarea={true}
+                        />
                       ) : (
                         metric.insight && (
-                          (() => {
-                            const il = metric.insightLink as any;
-                            if (il) {
-                              try {
-                                const parsed = typeof il === 'string' ? JSON.parse(il) : il;
-                                if (parsed.type === 'url') return <a href={parsed.href} target="_blank" rel="noopener noreferrer" className="text-blue-600 leading-relaxed underline">{metric.insight}</a>;
-                                if (parsed.type === 'image') return <span className="text-blue-600 leading-relaxed underline cursor-pointer" onClick={() => setImageModal(parsed.href)}>{metric.insight}</span>;
-                              } catch {}
-                            }
-                            return <div className="text-gray-700 leading-relaxed">{metric.insight}</div>;
-                          })()
+                          <InlineLinkRenderer
+                            text={metric.insight}
+                            className="text-gray-700 leading-relaxed"
+                            onImageClick={setImageModal}
+                          />
                         )
                       )}
 
@@ -1103,14 +1080,21 @@ function App({ onLogout, isAdmin = false }: AppProps) {
             </div>
                                       )}
                                       {editMode ? (
-                                        <input
-                                          className="w-full border border-black rounded-lg p-2 text-black"
+                                        <InlineLinkEditor
                                           value={item.description || ''}
-                                          placeholder="Description"
-                                          onChange={(e) => updateExpandedItem(selectedCategory, metric.title, idx, 'description', e.target.value)}
+                                          onChange={(value) => updateExpandedItem(selectedCategory, metric.title, idx, 'description', value)}
+                                          placeholder="Description (use [text](url) for links)"
+                                          className="text-sm"
+                                          onImageUpload={handleImageUpload}
                                         />
                                       ) : (
-                                        item.description && <div className="text-sm text-gray-600">{item.description}</div>
+                                        item.description && (
+                                          <InlineLinkRenderer
+                                            text={item.description}
+                                            className="text-sm text-gray-600"
+                                            onImageClick={setImageModal}
+                                          />
+                                        )
                                     )}
             </div>
                   </div>
