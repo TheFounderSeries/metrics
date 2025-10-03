@@ -90,10 +90,10 @@ function App({ onLogout, isAdmin = false }: AppProps) {
     try {
       const form = new FormData();
       form.append('file', file);
-      const res = await fetch('/api/images', { method: 'POST', body: form });
+      const res = await fetch('https://series-metrics-api-202642739529.us-east1.run.app/api/images', { method: 'POST', body: form });
       if (!res.ok) throw new Error('Upload failed');
       const body = await res.json();
-      const url = `/api/images/${body.id}`;
+      const url = `https://series-metrics-api-202642739529.us-east1.run.app/api/images/${body.id}`;
       onSuccess(url);
       setSaveMessage('Image uploaded');
     } catch (e) {
@@ -115,7 +115,7 @@ function App({ onLogout, isAdmin = false }: AppProps) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await fetch('/api/dataroom');
+        const res = await fetch('https://series-metrics-api-202642739529.us-east1.run.app/api/dataroom');
         if (!res.ok) throw new Error('Failed to fetch');
         const body = await res.json();
         if (body && Array.isArray(body.data)) {
@@ -146,7 +146,7 @@ function App({ onLogout, isAdmin = false }: AppProps) {
     if (!isAdmin) return;
     const load = async () => {
       try {
-        const res = await fetch('/api/revisions');
+        const res = await fetch('https://series-metrics-api-202642739529.us-east1.run.app/api/revisions');
         if (res.ok) {
           const list = await res.json();
           setRevisions(list);
@@ -204,7 +204,7 @@ function App({ onLogout, isAdmin = false }: AppProps) {
   };
 
   const createDraftFromCurrent = async (): Promise<number> => {
-    const res = await fetch('/api/revisions', {
+    const res = await fetch('https://series-metrics-api-202642739529.us-east1.run.app/api/revisions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ data }),
@@ -221,7 +221,7 @@ function App({ onLogout, isAdmin = false }: AppProps) {
       const ok = window.confirm('Unsaved changes will be lost. Continue?');
       if (!ok) return;
     }
-    const res = await fetch(`/api/revisions/${version}${minor != null ? `?minor=${minor}` : ''}`);
+    const res = await fetch(`https://series-metrics-api-202642739529.us-east1.run.app/api/revisions/${version}${minor != null ? `?minor=${minor}` : ''}`);
     if (res.ok) {
       const body = await res.json();
       setData(body.data || []);
@@ -234,7 +234,7 @@ function App({ onLogout, isAdmin = false }: AppProps) {
 
   const reloadRevisionList = async () => {
     try {
-      const res = await fetch('/api/revisions');
+      const res = await fetch('https://series-metrics-api-202642739529.us-east1.run.app/api/revisions');
       if (res.ok) {
         const list = await res.json();
         setRevisions(list);
@@ -253,7 +253,7 @@ function App({ onLogout, isAdmin = false }: AppProps) {
         // Ensure we are updating a draft. If currentVersion is published/archived, create a new draft.
         let status: string | undefined = undefined;
         try {
-          const revRes = await fetch(`/api/revisions/${version}`);
+          const revRes = await fetch(`https://series-metrics-api-202642739529.us-east1.run.app/api/revisions/${version}`);
           if (revRes.ok) {
             const rev = await revRes.json();
             status = rev.status;
@@ -262,7 +262,7 @@ function App({ onLogout, isAdmin = false }: AppProps) {
         if (status !== 'draft') {
           version = await createDraftFromCurrent();
         } else {
-          const res = await fetch(`/api/revisions/${version}`, {
+          const res = await fetch(`https://series-metrics-api-202642739529.us-east1.run.app/api/revisions/${version}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ data }),
@@ -286,7 +286,7 @@ function App({ onLogout, isAdmin = false }: AppProps) {
     if (toPublish == null) {
       toPublish = await createDraftFromCurrent();
     }
-    const res = await fetch(`/api/publish/${toPublish}`, { method: 'POST' });
+    const res = await fetch(`https://series-metrics-api-202642739529.us-east1.run.app/api/publish/${toPublish}`, { method: 'POST' });
     if (!res.ok) throw new Error('Failed to publish');
     setRevisions((r) => r.map((x) => ({ ...x, status: x.version === toPublish ? 'published' : (x.status === 'published' ? 'archived' : x.status) })));
     setHasUnsavedChanges(false);
@@ -868,7 +868,7 @@ function App({ onLogout, isAdmin = false }: AppProps) {
                               </label>
                               <button
                                 className="text-xs px-2 py-1 border border-black rounded"
-                                onClick={() => {
+                        onClick={() => {
                                   const href = prompt('Enter URL');
                                   if (href) updateMetricLink(selectedCategory, metric.title, href);
                                 }}
@@ -888,7 +888,7 @@ function App({ onLogout, isAdmin = false }: AppProps) {
                             return <h3 className="text-lg font-bold text-black">{metric.title}</h3>;
                           })()
                         )}
-                        </div>
+                    </div>
                     
                     {/* Main Value */}
                       <div className="space-y-1">
@@ -914,7 +914,7 @@ function App({ onLogout, isAdmin = false }: AppProps) {
                                 <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f, (href) => updateMetricField(selectedCategory, metric.title, 'descriptionLink', JSON.stringify({ type: 'image', href } as any))); }} />
                               </label>
                               <button className="text-xxs px-2 py-1 border border-black rounded" onClick={() => { const href = prompt('Enter URL'); if (href) updateMetricField(selectedCategory, metric.title, 'descriptionLink', JSON.stringify({ type: 'url', href } as any)); }}>Link</button>
-                            </div>
+                      </div>
                           </div>
                         ) : (
                           metric.description && (
@@ -952,7 +952,7 @@ function App({ onLogout, isAdmin = false }: AppProps) {
                                 setHasUnsavedChanges(true);
                               }}
                             />
-                          </div>
+                        </div>
                         ) : (
                           metric.ctaText && metric.ctaLink && (
                             metric.ctaLink.type === 'url' ? (
@@ -961,7 +961,7 @@ function App({ onLogout, isAdmin = false }: AppProps) {
                               <span className="text-base underline cursor-pointer" onClick={() => setImageModal(metric.ctaLink!.imageSrc!)}>{metric.ctaText}</span>
                             ) : null
                           )
-                        )}
+                      )}
                     </div>
 
                     {/* Insight */}
@@ -978,8 +978,8 @@ function App({ onLogout, isAdmin = false }: AppProps) {
                               <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f, (href) => updateMetricField(selectedCategory, metric.title, 'insightLink', JSON.stringify({ type: 'image', href } as any))); }} />
                             </label>
                             <button className="text-xxs px-2 py-1 border border-black rounded" onClick={() => { const href = prompt('Enter URL'); if (href) updateMetricField(selectedCategory, metric.title, 'insightLink', JSON.stringify({ type: 'url', href } as any)); }}>Link</button>
-                          </div>
-                        </div>
+                      </div>
+                    </div>
                       ) : (
                         metric.insight && (
                           (() => {
@@ -1023,7 +1023,7 @@ function App({ onLogout, isAdmin = false }: AppProps) {
                               {metric.expandedData.map((item, idx, itemsArr) => (
                                 <div key={idx} className="bg-gray-25 border border-black rounded-lg p-4">
                                   <div className="space-y-2">
-                                      <div className="flex items-center justify-between">
+                                    <div className="flex items-center justify-between">
                                         {editMode ? (
                                           <div className="relative">
                                             <input
@@ -1043,7 +1043,7 @@ function App({ onLogout, isAdmin = false }: AppProps) {
                                                   }}
                                                 />
                                               </label>
-                                              <button
+                        <button
                                                 className="text-xs px-2 py-1 border border-black rounded"
                                                 onClick={() => {
                                                   const href = prompt('Enter URL');
@@ -1051,9 +1051,9 @@ function App({ onLogout, isAdmin = false }: AppProps) {
                                                 }}
                                               >
                                                 Link
-                                              </button>
-                                            </div>
-                                          </div>
+                        </button>
+                      </div>
+                  </div>
                                         ) : (
                                           (() => {
                                             if (item.link?.type === 'url' && item.link.href) {
@@ -1065,7 +1065,7 @@ function App({ onLogout, isAdmin = false }: AppProps) {
                                             return <div className="text-sm font-bold text-black">{item.label}</div>;
                                           })()
                                         )}
-                  </div>
+                </div>
                                       {editMode ? (
                                         <input
                                           className="w-full border border-black rounded-lg p-2 text-black text-lg font-bold"
@@ -1077,15 +1077,15 @@ function App({ onLogout, isAdmin = false }: AppProps) {
                                       )}
                                       {editMode && (
                                         <div className="flex items-center gap-2 mt-2">
-                                          <button
+              <button
                                             onClick={() => moveExpandedItem(selectedCategory, metric.title, idx, Math.max(0, idx - 1))}
                                             disabled={idx === 0}
                                             className="text-xs px-2 py-1 border border-black rounded disabled:opacity-50"
                                             title="Move up"
                                           >
                                             ↑
-                                          </button>
-                                          <button
+              </button>
+              <button
                                             onClick={() => moveExpandedItem(selectedCategory, metric.title, idx, Math.min(itemsArr.length - 1, idx + 1))}
                                             disabled={idx === itemsArr.length - 1}
                                             className="text-xs px-2 py-1 border border-black rounded disabled:opacity-50"
@@ -1099,8 +1099,8 @@ function App({ onLogout, isAdmin = false }: AppProps) {
                                             title="Remove subtile"
                                           >
                                             Remove
-                                          </button>
-                                        </div>
+              </button>
+            </div>
                                       )}
                                       {editMode ? (
                                         <input
@@ -1112,7 +1112,7 @@ function App({ onLogout, isAdmin = false }: AppProps) {
                                       ) : (
                                         item.description && <div className="text-sm text-gray-600">{item.description}</div>
                                     )}
-                  </div>
+            </div>
                   </div>
                               ))}
           </div>
@@ -1129,25 +1129,25 @@ function App({ onLogout, isAdmin = false }: AppProps) {
           </div>
         </div>
       )}
-        </div>
+            </div>
       )}
                       {isAdmin && editMode && (
                         <div className="pt-2 flex justify-end">
-              <button
+                    <button
                             onClick={() => void saveDraftRevision()}
                             disabled={isSaving || !hasUnsavedChanges}
                             className="text-sm px-3 py-1 border border-black rounded-lg hover:bg-gray-50 disabled:opacity-60"
                             title="Save Draft"
                           >
                             Save Draft
-              </button>
-        </div>
-      )}
-            </div>
+                    </button>
+              </div>
+            )}
+                      </div>
+                      </div>
+                    ))}
+                  </div>
           </div>
-                  ))}
-                </div>
-                    </div>
         </div>
       )}
     </div>
