@@ -209,6 +209,65 @@ const DEFAULT_DATA = [
         ]
       }
     ]
+  },
+  {
+    title: 'Engagement',
+    header: 'To understand how students interact with Series',
+    metrics: [
+      {
+        title: 'Messages Exchanged',
+        value: '691,428',
+        description: 'Gaining context on students\' desires and feelings curates better recommendations for our algorithm and paying customers.',
+        expandedData: [
+          { label: 'Group Chat Ratio', value: '24.83%', description: 'Aver. % share of messages in group chats across Series users in a period.' },
+          { label: 'Monthly Messages Exchanged', value: '42,202', description: 'Average all-time this month of messages exchanged.' },
+          { label: 'Avg Msgs/User', value: '42.9', description: 'The mean count of messages exchanged/user across AI Friend.' }
+        ]
+      },
+      {
+        title: 'First Match Acceptance',
+        value: '83.9%',
+        description: 'First match success',
+        expandedData: [
+          { label: 'Aug 27-Sep 3', value: '94.4%', description: '187 users accepted' },
+          { label: 'Sep 3-10', value: '97.7%', description: '85 users accepted' },
+          { label: 'Sep 10-17', value: '73.5%', description: '86 users accepted' },
+          { label: 'Overall Average', value: '83%', description: 'Generalized acceptance rate' }
+        ]
+      },
+      {
+        title: 'North Star Metric (NSM)',
+        value: '12%',
+        description: 'Percentage of users with ≥1 successful connection by D30.',
+        insight: 'We define a successful connection as a group chat formed between 2 within 24 hours and users are active +D30.',
+        expandedData: [
+          { label: 'NSM to Date', value: '12%', description: 'of users ≥1 successful connection' },
+          { label: 'NSM by Dec 2025', value: '30%', description: 'Target by Dec 2025' }
+        ]
+      },
+      {
+        title: 'Total Connections Made',
+        value: '4,275',
+        description: 'Gaining context on our users\' desires and feelings curates better recommendations for our algorithm and paying customers',
+        expandedData: [
+          { label: 'Connections made in September', value: 'tbd', description: '' },
+          { label: 'Monthly matches', value: '24,387', description: '' },
+          { label: 'Unique connection requests (post launch of v3)', value: 'tbd', description: '' },
+          { label: 'Successful connection requests (post launch of v3)', value: 'tbd', description: '' }
+        ]
+      },
+      {
+        title: 'Current MoM User Growth',
+        value: '13.4%',
+        description: 'Calculated by looking at Active Users joining this past month over last month\'s active user count',
+        expandedData: [
+          { label: 'DAU', value: 'tbd', description: 'Daily active user count' },
+          { label: 'WAU', value: 'tbd', description: 'Weekly active user count' },
+          { label: 'MAU', value: 'tbd', description: 'Monthly active user count' },
+          { label: 'New Users in September', value: '???', description: 'Recent new users in September' }
+        ]
+      }
+    ]
   }
 ];
 
