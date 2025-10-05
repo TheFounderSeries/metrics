@@ -11,7 +11,7 @@ This is a metrics dashboard application for Series, providing an interactive dat
 ### Frontend (Vite + React + TypeScript)
 - **Entry point**: `src/main.tsx` renders `AuthWrapper` component
 - **Authentication**: Password-protected access with two levels:
-  - View-only: `ConsumerSocial@2025`
+  - View-only: `DistributionWinsTheDataRace`
   - Admin/Edit: `BigPod@2025`
   - Auth state persisted in localStorage for 24 hours
 - **Main App**: `src/App.tsx` contains the dashboard logic with:

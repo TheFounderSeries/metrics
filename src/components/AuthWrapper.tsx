@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import LoginForm from './LoginForm';
 import App from '../App';
 
-const CORRECT_PASSWORD = 'ConsumerSocial@2025';
+const CORRECT_PASSWORD = 'DistributionWinsTheDataRace';
 const ADMIN_PASSWORD = 'BigPod@2025';
 const AUTH_STORAGE_KEY = 'series_metrics_auth';
 
