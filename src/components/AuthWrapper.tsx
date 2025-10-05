@@ -3,6 +3,7 @@ import LoginForm from './LoginForm';
 import App from '../App';
 
 const CORRECT_PASSWORD = 'DistributionWinsTheDataRace';
+const CORRECT_PASSSWORD_OLD = 'ConsumerSocial@2025';
 const ADMIN_PASSWORD = 'BigPod@2025';
 const AUTH_STORAGE_KEY = 'series_metrics_auth';
 
@@ -48,7 +49,7 @@ const AuthWrapper: React.FC = () => {
     setAuthError('');
 
     const isAdminLogin = password === ADMIN_PASSWORD;
-    if (password === CORRECT_PASSWORD || isAdminLogin) {
+    if (password === CORRECT_PASSWORD || password === CORRECT_PASSSWORD_OLD || isAdminLogin) {
       setIsAuthenticated(true);
       setIsAdmin(isAdminLogin);
 
